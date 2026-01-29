@@ -4,7 +4,9 @@ import (
 	"betapa-antik-service/configs"
 	datasource "betapa-antik-service/internal/dataSource"
 	"betapa-antik-service/pkg/utils"
+	"betapa-antik-service/pkg/workers/consumer"
 	"betapa-antik-service/routes"
+	"context"
 	"log"
 	"os"
 
@@ -38,6 +40,13 @@ func main() {
 
 	configs.InitRabbitMQ()
 	defer configs.CloseConnections()
+
+	// start photo upload consumer worker
+	go func() {
+		if err := consumer.StartPhotoConsumer(context.Background(), db, cloudinarySvc); err != nil {
+			log.Printf("Failed to start photo consumer: %v", err)
+		}
+	}()
 
 	routes.Routes(e, db, rdb, &cloudinarySvc)
 
