@@ -3,8 +3,8 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log"
+	"os"
 
 	"betapa-antik-service/configs"
 	datasource "betapa-antik-service/internal/dataSource"
@@ -16,14 +16,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func StartPhotoConsumer(ctx context.Context, db *gorm.DB, cloud datasource.CloudinaryService) error {
+func StartPhotoConsumer(
+	ctx context.Context,
+	db *gorm.DB,
+	cloud datasource.CloudinaryService,
+) error {
+
 	conn := configs.GetRabbitConn()
 	ch, err := conn.Channel()
 	if err != nil {
 		return err
 	}
 
-	q, err := ch.QueueDeclare(
+	_, err = ch.QueueDeclare(
 		queueConst.AdminPhotoUploadQueue,
 		true,
 		false,
@@ -35,7 +40,15 @@ func StartPhotoConsumer(ctx context.Context, db *gorm.DB, cloud datasource.Cloud
 		return err
 	}
 
-	msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)
+	msgs, err := ch.Consume(
+		queueConst.AdminPhotoUploadQueue,
+		"",
+		false, // ✅ MANUAL ACK
+		false,
+		false,
+		false,
+		nil,
+	)
 	if err != nil {
 		return err
 	}
@@ -46,48 +59,60 @@ func StartPhotoConsumer(ctx context.Context, db *gorm.DB, cloud datasource.Cloud
 		for d := range msgs {
 			var p payload.PhotoUploadPayload
 			if err := json.Unmarshal(d.Body, &p); err != nil {
-				log.Printf("failed to unmarshal photo payload: %v", err)
+				log.Printf("invalid payload: %v", err)
+				_ = d.Nack(false, false)
 				continue
 			}
 
-			var photoURL string
-			// upload all files in payload
+			var lastPhotoURL string
+
 			for _, file := range p.Files {
-				res, err := cloud.UploadImageBytes(ctx, io.NopCloser(bytesReader(file.Data)), p.Folder, file.Filename)
+				f, err := os.Open(file.Path)
 				if err != nil {
-					log.Printf("cloud upload failed for %s: %v", file.Filename, err)
+					log.Printf("file not found: %s", file.Path)
 					continue
 				}
-				photoURL = res.URL // keep last successful upload URL for user.Foto
-				log.Printf("uploaded %s to %s, url=%s", file.Filename, p.Folder, res.URL)
+
+				res, err := cloud.UploadFromReader(
+					ctx,
+					f,
+					p.Folder,
+					file.Filename,
+				)
+				f.Close()
+
+				if err != nil {
+					log.Printf("upload failed: %v", err)
+					continue
+				}
+
+				_ = os.Remove(file.Path) // 🧹 cleanup tmp
+				lastPhotoURL = res.URL
+
+				log.Printf(
+					"[PHOTO] uploaded file=%s url=%s",
+					file.Filename,
+					res.URL,
+				)
 			}
 
-			// update user Foto field with last uploaded URL (for primary photo)
-			if photoURL != "" {
-				if err := adminRepo.Update(ctx, p.UserID, &models.User{Foto: photoURL}); err != nil {
-					log.Printf("failed to update user foto: %v", err)
+			if lastPhotoURL != "" {
+				if err := adminRepo.Update(
+					ctx,
+					p.ID,
+					&models.User{Foto: lastPhotoURL},
+				); err != nil {
+					log.Printf("db update failed: %v", err)
+					_ = d.Nack(false, true)
 					continue
 				}
-				log.Printf("processed photo uploads for user %s, primary_url=%s", p.UserID, photoURL)
+
+				_ = configs.DeleteRedis(ctx, "profile:"+p.ID.String())
 			}
+
+			d.Ack(false) // ✅ SUCCESS
 		}
 	}()
 
 	return nil
-}
-
-// bytesReader provides an io.Reader from a byte slice
-func bytesReader(b []byte) io.Reader {
-	return &reader{b: b}
-}
-
-type reader struct{ b []byte }
-
-func (r *reader) Read(p []byte) (int, error) {
-	if len(r.b) == 0 {
-		return 0, io.EOF
-	}
-	n := copy(p, r.b)
-	r.b = r.b[n:]
-	return n, nil
 }

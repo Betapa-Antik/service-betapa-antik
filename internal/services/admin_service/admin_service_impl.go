@@ -2,11 +2,16 @@ package adminservice
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"mime/multipart"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	adminrequest "betapa-antik-service/internal/dto/request/admin_request"
+	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	"betapa-antik-service/internal/models"
 	adminrepo "betapa-antik-service/internal/repositories/admin_repo"
 	rolerepo "betapa-antik-service/internal/repositories/role_repo"
@@ -16,6 +21,8 @@ import (
 	producers "betapa-antik-service/pkg/workers/producers"
 
 	"errors"
+
+	"betapa-antik-service/configs"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -69,25 +76,211 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req *adminrequest.Creat
 	if req.Foto != nil {
 		f, err := req.Foto.Open()
 		if err == nil {
-			data, _ := io.ReadAll(f)
-			f.Close()
-			// generate filename with uuid + extension
+			tmpPath := filepath.Join(
+				os.TempDir(),
+				uuid.New().String()+filepath.Ext(req.Foto.Filename),
+			)
+
+			out, err := os.Create(tmpPath)
+			if err != nil {
+				return nil
+			}
+			defer out.Close()
+
+			_, _ = io.Copy(out, f)
+
 			ext := filepath.Ext(req.Foto.Filename)
 			filename := uuid.New().String() + ext
 			pl := payload.PhotoUploadPayload{
-				UserID: user.ID,
-				Folder: "betapa_antik/foto_admin", // specified folder path
+				ID:     user.ID,
+				Folder: "betapa_antik/foto_admin",
 				Files: []payload.PhotoFile{
 					{
 						Filename: filename,
-						Data:     data,
+						Path:     tmpPath,
 					},
 				},
 			}
 			// best-effort publish; do not block on error
-			_ = producers.PublishPhotoUpload(pl)
+			producers.PublishPhotoUpload(pl)
 		}
 	}
 
+	return nil
+}
+
+// Login implements [IAdminService].
+func (a *AdminServiceImpl) Login(ctx context.Context, req *authrequest.LoginRequest) (*models.User, string, error) {
+	// check rate limit
+	allowed, _, ttl, err := utils.IsLoginAllowed(ctx, req.Email)
+	if err != nil {
+		return nil, "", errormessage.NewCustomError(err, "Gagal memeriksa percobaan login", 500)
+	}
+	if !allowed {
+		return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Terlalu banyak percobaan login, coba lagi setelah "+ttl.String(), 429)
+	}
+
+	// find user by email
+	user, err := a.adminRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		// increment attempts on failure
+		if _, _, incErr := utils.IncrementLoginAttempt(ctx, req.Email); incErr != nil {
+			// log but ignore
+		}
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email atau kata sandi salah", 401)
+	}
+
+	// check password
+	if err := utils.CheckPassword(user.KataSandi, req.Password); err != nil {
+		// increment attempts
+		count, ttl, incErr := utils.IncrementLoginAttempt(ctx, req.Email)
+		if incErr == nil && count >= utils.LoginAttemptLimit {
+			return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Terlalu banyak percobaan login, coba lagi setelah "+ttl.String(), 429)
+		}
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email atau kata sandi salah", 401)
+	}
+
+	// success - reset attempts
+	if err := utils.ResetLoginAttempt(ctx, req.Email); err != nil {
+		// non-fatal, log maybe
+	}
+
+	// generate jwt token
+	token, exp, err := utils.GenerateToken(user, 0)
+	if err != nil {
+		return nil, "", errormessage.NewCustomError(err, "Gagal membuat token", 500)
+	}
+	// store token in redis with ttl
+	ttlDur := time.Until(time.Unix(exp, 0))
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := configs.SetRedis(ctx, "auth:token:"+token, user.ID.String(), ttlDur); err != nil {
+		// non-fatal, but return error
+		return nil, "", errormessage.NewCustomError(err, "Gagal menyimpan token", 500)
+	}
+
+	return user, token, nil
+}
+
+// UpdateProfile implements [IAdminService].
+func (a *AdminServiceImpl) UpdateProfile(ctx context.Context, userID uuid.UUID, email, nama string) error {
+	// fetch user to confirm existence
+	user, err := a.adminRepo.FindByID(ctx, userID)
+	if err != nil {
+		return errormessage.NewCustomError(err, "User tidak ditemukan", 404)
+	}
+
+	// if email changed, check uniqueness
+	if email != "" && email != user.Email {
+		other, err := a.adminRepo.FindByEmail(ctx, email)
+		if err == nil {
+			if other.ID != userID {
+				return errormessage.NewCustomError(errormessage.ErrExists, "Email sudah terdaftar", 400)
+			}
+		} else {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return errormessage.NewCustomError(err, "Gagal memeriksa email", 500)
+			}
+		}
+	}
+
+	data := &models.User{
+		Email:       email,
+		NamaLengkap: nama,
+	}
+	if err := a.adminRepo.Update(ctx, userID, data); err != nil {
+		return errormessage.NewCustomError(err, "Gagal memperbarui profil", 500)
+	}
+
+	// update cache
+	updated, err := a.adminRepo.FindByID(ctx, userID)
+	if err == nil {
+		b, _ := json.Marshal(updated)
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		_ = configs.SetRedis(ctx, "profile:"+userID.String(), string(b), 10*time.Minute)
+	}
+
+	return nil
+}
+
+// UpdateProfilePhoto implements [IAdminService].
+func (a *AdminServiceImpl) UpdateProfilePhoto(ctx context.Context, userID uuid.UUID, foto *multipart.FileHeader) error {
+	if foto == nil {
+		return errormessage.NewCustomError(errormessage.ErrBadRequest, "File foto tidak ditemukan", 400)
+	}
+	f, err := foto.Open()
+	if err != nil {
+		return errormessage.NewCustomError(err, "Gagal membaca file foto", 400)
+	}
+	defer f.Close()
+	tmpPath := filepath.Join(
+		os.TempDir(),
+		uuid.New().String()+filepath.Ext(foto.Filename),
+	)
+
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return errormessage.NewCustomError(err, "Gagal menyimpan file sementara", 500)
+	}
+	defer out.Close()
+
+	_, _ = io.Copy(out, f)
+
+	ext := filepath.Ext(foto.Filename)
+	filename := uuid.New().String() + ext
+	pl := payload.PhotoUploadPayload{
+		ID:     userID,
+		Folder: "betapa_antik/foto_admin",
+		Files: []payload.PhotoFile{
+			{
+				Filename: filename,
+				Path:     tmpPath,
+			},
+		},
+	}
+
+	if err := producers.PublishPhotoUpload(pl); err != nil {
+		return errormessage.NewCustomError(err, "Gagal memproses unggahan foto", 500)
+	}
+
+	// invalidate cache so subsequent GetProfile will fetch fresh data
+	_ = configs.DeleteRedis(ctx, "profile:"+userID.String())
+
+	return nil
+}
+
+// GetProfile implements [IAdminService]. It tries to read from redis cache first.
+func (a *AdminServiceImpl) GetProfile(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	key := "profile:" + userID.String()
+	val, err := configs.GetRedis(ctx, key)
+	if err == nil && val != "" {
+		var u models.User
+		if err := json.Unmarshal([]byte(val), &u); err == nil {
+			return &u, nil
+		}
+	}
+
+	// fallback to DB
+	user, err := a.adminRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := json.Marshal(user)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	_ = configs.SetRedis(ctx, key, string(b), 10*time.Minute)
+	return user, nil
+}
+
+// Logout implements [IAdminService]. It deletes the token key from Redis so it becomes invalid.
+func (a *AdminServiceImpl) Logout(ctx context.Context, token string) error {
+	if token == "" {
+		return errormessage.NewCustomError(errormessage.ErrBadRequest, "Token tidak diberikan", 400)
+	}
+	key := "auth:token:" + token
+	if err := configs.DeleteRedis(ctx, key); err != nil {
+		return errormessage.NewCustomError(err, "Gagal menghapus token", 500)
+	}
 	return nil
 }

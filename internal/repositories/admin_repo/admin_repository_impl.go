@@ -28,3 +28,21 @@ func (a *AdminRepositoryImpl) Register(ctx context.Context, data *models.User) e
 func (a *AdminRepositoryImpl) Update(ctx context.Context, id uuid.UUID, data *models.User) error {
 	return a.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", id).Updates(data).Error
 }
+
+// FindByEmail implements [IAdminRepository].
+func (a *AdminRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	if err := a.db.WithContext(ctx).Preload("Role").Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByID implements [IAdminRepository].
+func (a *AdminRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	var user models.User
+	if err := a.db.WithContext(ctx).Preload("Role").Where("id = ?", id).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

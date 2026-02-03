@@ -52,6 +52,6 @@ func PublishPhotoUpload(p payload.PhotoUploadPayload) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Published photo upload message for user %s with %d file(s) to folder %s", p.UserID, len(p.Files), p.Folder)
+	log.Printf("Published photo upload message for user %s with %d file(s) to folder %s", p.ID, len(p.Files), p.Folder)
 	return nil
 }

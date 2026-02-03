@@ -1,5 +1,7 @@
 package rabbitmq
 
 const (
-	AdminPhotoUploadQueue = "admin.photo.upload"
+	AdminPhotoUploadQueue  = "admin.photo.upload"
+	MateriImageUploadQueue = "materi.image.upload"
+	QueueDeleteImage       = "delete_image_queue"
 )

@@ -2,6 +2,7 @@ package configs
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -15,15 +16,29 @@ var RDB *redis.Client
 func InitRedis() *redis.Client {
 	RDB = redis.NewClient(&redis.Options{
 		Addr:     os.Getenv("REDIS_ADDR"),
-		Username: "default",
 		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
+
+		DialTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+
+		PoolSize:     20,
+		MinIdleConns: 5,
+
+		MaxRetries:      5,
+		MinRetryBackoff: 500 * time.Millisecond,
+		MaxRetryBackoff: 3 * time.Second,
 	})
-	_, err := RDB.Ping(context.Background()).Result()
-	if err != nil {
-		panic("Failed to connect to Redis: " + err.Error())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := RDB.Ping(ctx).Err(); err != nil {
+		log.Fatalf("❌ Redis ping failed: %v", err)
 	}
-	log.Println("Redis Connected!")
+
+	log.Println("✅ Redis connected")
 	return RDB
 }
 
@@ -33,6 +48,9 @@ func SetRedis(ctx context.Context, key string, value interface{}, duration time.
 
 // Get value berdasarkan key
 func GetRedis(ctx context.Context, key string) (string, error) {
+	if RDB == nil {
+		return "", errors.New("redis not initialized")
+	}
 	return RDB.Get(ctx, key).Result()
 }
 

@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -43,4 +44,12 @@ func CloseConnections() {
 	if RabbitConn != nil {
 		_ = RabbitConn.Close()
 	}
+}
+
+func GetRabbitChannel() (*amqp.Channel, error) {
+	conn := GetRabbitConn()
+	if conn == nil || conn.IsClosed() {
+		return nil, errors.New("rabbit connection not ready")
+	}
+	return conn.Channel()
 }
