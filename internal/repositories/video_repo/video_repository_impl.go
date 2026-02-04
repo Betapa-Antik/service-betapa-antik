@@ -75,10 +75,10 @@ func (v *VideoRepositoryImpl) GetVideoById(ctx context.Context, videoId uuid.UUI
 }
 
 // UpdateVideo implements [IVideoRepository].
-func (v *VideoRepositoryImpl) UpdateVideo(ctx context.Context, videoId uuid.UUID, data *models.Video) error {
+func (v *VideoRepositoryImpl) UpdateVideo(ctx context.Context, videoId uuid.UUID, updates map[string]interface{}) error {
 	return v.db.WithContext(ctx).Model(&models.Video{}).
 		Where("id = ?", videoId).
-		Updates(data).Error
+		Updates(updates).Error
 }
 
 // UpdateStatusVideo implements [IVideoRepository].

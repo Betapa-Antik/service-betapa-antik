@@ -11,84 +11,115 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"os"
+	"time"
 
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 )
 
 func StartMateriPhotoConsumer(ctx context.Context, db *gorm.DB, cloud datasource.CloudinaryService) error {
-	conn := configs.GetRabbitConn()
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-
-	q, err := ch.QueueDeclare(
-		queueConst.MateriImageUploadQueue,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-
 	materiRepo := materirepo.NewMateriRepositoryImpl(db)
 
 	go func() {
-		for d := range msgs {
-			var p payload.PhotoUploadPayload
-			if err := json.Unmarshal(d.Body, &p); err != nil {
+		for {
+			conn := configs.GetRabbitConn()
+			if conn == nil || conn.IsClosed() {
+				log.Println("[RabbitMQ] Waiting for connection...")
+				time.Sleep(5 * time.Second)
 				continue
 			}
 
-			for _, file := range p.Files {
-				go func(f payload.PhotoFile) {
-					data, err := os.ReadFile(f.Path)
-					if err != nil {
-						return
-					}
-
-					res, err := cloud.UploadFromReader(
-						ctx,
-						bytes.NewReader(data),
-						p.Folder,
-						f.Filename,
-					)
-					if err != nil {
-						return
-					}
-
-					_ = os.Remove(f.Path) // 🔥 bersihin tmp
-
-					// DB TRANSACTION
-					_ = utils.RunInTransaction(db, func(tx *gorm.DB) error {
-						repo := materiRepo.WithTx(tx)
-
-						gambar := &models.Gambar{Path: res.URL}
-						if err := repo.CreateGambar(ctx, gambar); err != nil {
-							return err
-						}
-
-						return repo.CreatePivotMateriGambar(ctx, &models.MateriGambar{
-							MateriID: p.ID,
-							GambarID: gambar.ID,
-						})
-					})
-				}(file)
-				_ = configs.DeleteRedis(ctx, "materies:*")
-				_ = configs.DeleteRedis(ctx, "materi:"+p.ID.String())
+			ch, err := conn.Channel()
+			if err != nil {
+				time.Sleep(5 * time.Second)
+				continue
 			}
-		}
 
+			// PENTING: Batasi jumlah pesan yang diproses (1 per worker) agar tidak stuck
+			_ = ch.Qos(2, 0, false)
+
+			msgs, err := ch.Consume(
+				queueConst.MateriImageUploadQueue,
+				"",    // consumer
+				false, // auto-ack diganti ke FALSE agar aman
+				false, // exclusive
+				false, // no-local
+				false, // no-wait
+				nil,   // args
+			)
+			if err != nil {
+				ch.Close()
+				continue
+			}
+
+			log.Println("[RabbitMQ] Materi Consumer is running...")
+
+			for d := range msgs {
+				// Proses satu per satu secara sekuensial atau gunakan worker pool terbatas
+				// Menghapus 'go func()' di dalam loop file untuk menghindari race condition
+				handleMateriUpload(ctx, d, db, materiRepo, cloud)
+			}
+
+			log.Println("[RabbitMQ] Channel closed, reconnecting...")
+			ch.Close()
+			time.Sleep(5 * time.Second)
+		}
 	}()
 
 	return nil
+}
+
+func handleMateriUpload(ctx context.Context, d amqp.Delivery, db *gorm.DB, materiRepo materirepo.IMateriRepository, cloud datasource.CloudinaryService) {
+	var p payload.PhotoUploadPayload
+	if err := json.Unmarshal(d.Body, &p); err != nil {
+		log.Printf("Invalid payload: %v", err)
+		_ = d.Ack(false)
+		return
+	}
+
+	successCount := 0
+	for _, file := range p.Files {
+		// 1. Read File
+		data, err := os.ReadFile(file.Path)
+		if err != nil {
+			log.Printf("Failed read file %s: %v", file.Path, err)
+			continue
+		}
+
+		// 2. Upload to Cloudinary
+		res, err := cloud.UploadFromReader(ctx, bytes.NewReader(data), p.Folder, file.Filename)
+		if err != nil {
+			log.Printf("Cloudinary error: %v", err)
+			continue
+		}
+
+		// 3. DB Transaction
+		err = utils.RunInTransaction(db, func(tx *gorm.DB) error {
+			repo := materiRepo.WithTx(tx)
+			gambar := &models.Gambar{Path: res.URL}
+			if err := repo.CreateGambar(ctx, gambar); err != nil {
+				return err
+			}
+			return repo.CreatePivotMateriGambar(ctx, &models.MateriGambar{
+				MateriID: p.ID,
+				GambarID: gambar.ID,
+			})
+		})
+
+		if err == nil {
+			_ = os.Remove(file.Path)
+			successCount++
+		}
+	}
+
+	// 4. Invalidate Cache setelah semua file selesai (Reusable Function)
+	if successCount > 0 {
+		_ = configs.DeleteRedis(ctx, "materies:*")
+		_ = configs.DeleteRedis(ctx, "materi:"+p.ID.String())
+	}
+
+	// 5. Akhiri dengan Ack
+	_ = d.Ack(false)
 }

@@ -7,9 +7,9 @@ type CreateVideoRequest struct {
 }
 
 type UpdateVideoRequest struct {
-	Judul     string `form:"judul" validate:"required"`
-	Link      string `form:"link" validate:"required"`
-	Deskripsi string `form:"deskripsi" validate:"required"`
+	Judul     string `form:"judul" validate:"omitempty"`
+	Link      string `form:"link" validate:"omitempty"`
+	Deskripsi string `form:"deskripsi" validate:"omitempty"`
 }
 
 type UpdateStatusVideoRequest struct {

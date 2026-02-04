@@ -29,7 +29,10 @@ func NewVideoServiceImpl(videoRepo videorepo.IVideoRepository, rdb *redis.Client
 func (v *VideoServiceImpl) InvalidateVideoCache(ctx context.Context, videoId uuid.UUID) {
 	_ = configs.DeleteRedis(ctx, "video:"+videoId.String())
 
-	_ = configs.DeleteRedis(ctx, "videos:all:*")
+	iter := v.rdb.Scan(ctx, 0, "videos:all:*", 0).Iterator()
+	for iter.Next(ctx) {
+		configs.DeleteRedis(ctx, iter.Val())
+	}
 }
 
 // CreateVideo implements [IVideoService].
@@ -135,11 +138,19 @@ func (v *VideoServiceImpl) UpdateVideo(ctx context.Context, videoId uuid.UUID, r
 			return errormessage.NewCustomError(err, "Gagal mengambil video", 500)
 		}
 
-		video.Judul = req.Judul
-		video.Link = req.Link
-		video.Deskripsi = req.Deskripsi
+		updates := map[string]interface{}{}
 
-		if err := repoTx.UpdateVideo(ctx, video.ID, video); err != nil {
+		if req.Judul != "" {
+			updates["judul"] = req.Judul
+		}
+		if req.Link != "" {
+			updates["link"] = req.Link
+		}
+		if req.Deskripsi != "" {
+			updates["deskripsi"] = req.Deskripsi
+		}
+
+		if err := repoTx.UpdateVideo(ctx, video.ID, updates); err != nil {
 			return errormessage.NewCustomError(err, "Gagal mengupdate video", 500)
 		}
 		v.InvalidateVideoCache(ctx, video.ID)

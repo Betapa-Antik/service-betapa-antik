@@ -46,7 +46,10 @@ func (m *MateriServiceImpl) InvalidateMateriCache(ctx context.Context, id uuid.U
 	_ = configs.DeleteRedis(ctx, "materi:"+id.String())
 
 	// Hapus semua cache list materi (pattern matching)
-	_ = configs.DeleteRedis(ctx, "materies:all:*")
+	iter := m.rdb.Scan(ctx, 0, "materies:all:*", 0).Iterator()
+	for iter.Next(ctx) {
+		configs.DeleteRedis(ctx, iter.Val())
+	}
 }
 
 // CreateMateri implements [IMateriService].
@@ -79,8 +82,9 @@ func (m *MateriServiceImpl) CreateMateri(ctx context.Context, req *materirequest
 			}
 			defer src.Close()
 
-			filename := uuid.New().String() + filepath.Ext(v.Filename)
-			tmpPath := filepath.Join(os.TempDir(), filename)
+			ext := filepath.Ext(v.Filename)
+			filename := uuid.New().String() + ext
+			tmpPath := utils.TempFilePath(filename)
 
 			dst, _ := os.Create(tmpPath)
 			_, _ = io.Copy(dst, src)
@@ -234,8 +238,9 @@ func (m *MateriServiceImpl) UpdateMateri(ctx context.Context, id uuid.UUID, req 
 				src, _ := g.Open()
 				defer src.Close()
 
-				filename := uuid.New().String() + filepath.Ext(g.Filename)
-				tmpPath := filepath.Join(os.TempDir(), filename)
+				ext := filepath.Ext(g.Filename)
+				filename := uuid.New().String() + ext
+				tmpPath := utils.TempFilePath(filename)
 
 				dst, _ := os.Create(tmpPath)
 				_, _ = io.Copy(dst, src)

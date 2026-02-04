@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"time"
 
 	"betapa-antik-service/configs"
 	datasource "betapa-antik-service/internal/dataSource"
@@ -13,6 +14,7 @@ import (
 	queueConst "betapa-antik-service/pkg/constant/rabbitMQ"
 	"betapa-antik-service/pkg/workers/payload"
 
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 )
 
@@ -21,98 +23,100 @@ func StartPhotoConsumer(
 	db *gorm.DB,
 	cloud datasource.CloudinaryService,
 ) error {
-
-	conn := configs.GetRabbitConn()
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-
-	_, err = ch.QueueDeclare(
-		queueConst.AdminPhotoUploadQueue,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	msgs, err := ch.Consume(
-		queueConst.AdminPhotoUploadQueue,
-		"",
-		false, // ✅ MANUAL ACK
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
 	adminRepo := adminrepo.NewAdminRepositoryImpl(db)
 
 	go func() {
-		for d := range msgs {
-			var p payload.PhotoUploadPayload
-			if err := json.Unmarshal(d.Body, &p); err != nil {
-				log.Printf("invalid payload: %v", err)
-				_ = d.Nack(false, false)
+		for {
+			conn := configs.GetRabbitConn()
+			if conn == nil || conn.IsClosed() {
+				log.Println("[RABBITMQ] Admin photo consumer waiting for connection...")
+				time.Sleep(5 * time.Second)
 				continue
 			}
 
-			var lastPhotoURL string
-
-			for _, file := range p.Files {
-				f, err := os.Open(file.Path)
-				if err != nil {
-					log.Printf("file not found: %s", file.Path)
-					continue
-				}
-
-				res, err := cloud.UploadFromReader(
-					ctx,
-					f,
-					p.Folder,
-					file.Filename,
-				)
-				f.Close()
-
-				if err != nil {
-					log.Printf("upload failed: %v", err)
-					continue
-				}
-
-				_ = os.Remove(file.Path) // 🧹 cleanup tmp
-				lastPhotoURL = res.URL
-
-				log.Printf(
-					"[PHOTO] uploaded file=%s url=%s",
-					file.Filename,
-					res.URL,
-				)
+			ch, err := conn.Channel()
+			if err != nil {
+				log.Printf("[RABBITMQ] Failed to open channel: %v", err)
+				time.Sleep(5 * time.Second)
+				continue
 			}
 
-			if lastPhotoURL != "" {
-				if err := adminRepo.Update(
-					ctx,
-					p.ID,
-					&models.User{Foto: lastPhotoURL},
-				); err != nil {
-					log.Printf("db update failed: %v", err)
-					_ = d.Nack(false, true)
-					continue
-				}
+			// Batasi jumlah pesan yang diproses sekaligus agar tidak memakan RAM/CPU
+			_ = ch.Qos(1, 0, false)
 
-				_ = configs.DeleteRedis(ctx, "profile:"+p.ID.String())
+			_, err = ch.QueueDeclare(
+				queueConst.AdminPhotoUploadQueue,
+				true, false, false, false, nil,
+			)
+			if err != nil {
+				ch.Close()
+				continue
 			}
 
-			d.Ack(false) // ✅ SUCCESS
+			msgs, err := ch.Consume(
+				queueConst.AdminPhotoUploadQueue,
+				"",    // consumer
+				false, // ✅ Manual Ack
+				false, false, false, nil,
+			)
+			if err != nil {
+				ch.Close()
+				continue
+			}
+
+			log.Println("[RABBITMQ] Admin Photo Consumer started...")
+
+			for d := range msgs {
+				// Proses pesan
+				handleAdminPhotoProcess(ctx, d, adminRepo, cloud)
+			}
+
+			log.Println("[RABBITMQ] Admin channel closed, retrying in 5s...")
+			ch.Close()
+			time.Sleep(5 * time.Second)
 		}
 	}()
 
 	return nil
+}
+
+func handleAdminPhotoProcess(ctx context.Context, d amqp.Delivery, repo adminrepo.IAdminRepository, cloud datasource.CloudinaryService) {
+	var p payload.PhotoUploadPayload
+	if err := json.Unmarshal(d.Body, &p); err != nil {
+		log.Printf("Invalid payload: %v", err)
+		_ = d.Ack(false) // Buang pesan yang formatnya salah
+		return
+	}
+
+	var lastPhotoURL string
+	for _, file := range p.Files {
+		f, err := os.Open(file.Path)
+		if err != nil {
+			log.Printf("File not found: %s", file.Path)
+			continue
+		}
+
+		res, err := cloud.UploadFromReader(ctx, f, p.Folder, file.Filename)
+		f.Close()
+
+		if err != nil {
+			log.Printf("Upload failed for %s: %v", file.Filename, err)
+			continue
+		}
+
+		_ = os.Remove(file.Path) // 🧹 Cleanup
+		lastPhotoURL = res.URL
+	}
+
+	if lastPhotoURL != "" {
+		// Gunakan Updates() atau Field spesifik di Repo untuk menghindari unique constraint error
+		if err := repo.Update(ctx, p.ID, &models.User{Foto: lastPhotoURL}); err != nil {
+			log.Printf("DB update failed: %v", err)
+			_ = d.Nack(false, true) // Requeue agar dicoba lagi nanti
+			return
+		}
+		_ = configs.DeleteRedis(ctx, "profile:"+p.ID.String())
+	}
+
+	_ = d.Ack(false) // ✅ Selesai dengan sukses
 }

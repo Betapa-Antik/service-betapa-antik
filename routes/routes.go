@@ -3,6 +3,8 @@ package routes
 import (
 	datasource "betapa-antik-service/internal/dataSource"
 	adminroutes "betapa-antik-service/routes/admin_routes"
+	kecamatanroutes "betapa-antik-service/routes/kecamatan_routes"
+	kelurahanroute "betapa-antik-service/routes/kelurahan_route"
 	materiroutes "betapa-antik-service/routes/materi_routes"
 	roleroutes "betapa-antik-service/routes/role_routes"
 	videoroutes "betapa-antik-service/routes/video_routes"
@@ -22,4 +24,8 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasource.Clo
 	materiroutes.MateriRoutes(v1.Group("/materi"), db, rdb)
 	//register video routes
 	videoroutes.VideoRoutes(v1.Group("/video"), db, rdb)
+	//register kecamatan routes
+	kecamatanroutes.KecamatanRoutes(v1.Group("/kecamatan"), db, rdb)
+	//register kelurahan routes
+	kelurahanroute.KelurahanRoutes(v1.Group("/kelurahan"), db, rdb)
 }

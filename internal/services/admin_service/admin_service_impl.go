@@ -76,10 +76,9 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req *adminrequest.Creat
 	if req.Foto != nil {
 		f, err := req.Foto.Open()
 		if err == nil {
-			tmpPath := filepath.Join(
-				os.TempDir(),
-				uuid.New().String()+filepath.Ext(req.Foto.Filename),
-			)
+			ext := filepath.Ext(req.Foto.Filename)
+			filename := uuid.New().String() + ext
+			tmpPath := utils.TempFilePath(filename)
 
 			out, err := os.Create(tmpPath)
 			if err != nil {
@@ -88,9 +87,6 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req *adminrequest.Creat
 			defer out.Close()
 
 			_, _ = io.Copy(out, f)
-
-			ext := filepath.Ext(req.Foto.Filename)
-			filename := uuid.New().String() + ext
 			pl := payload.PhotoUploadPayload{
 				ID:     user.ID,
 				Folder: "betapa_antik/foto_admin",
@@ -214,10 +210,9 @@ func (a *AdminServiceImpl) UpdateProfilePhoto(ctx context.Context, userID uuid.U
 		return errormessage.NewCustomError(err, "Gagal membaca file foto", 400)
 	}
 	defer f.Close()
-	tmpPath := filepath.Join(
-		os.TempDir(),
-		uuid.New().String()+filepath.Ext(foto.Filename),
-	)
+	ext := filepath.Ext(foto.Filename)
+	filename := uuid.New().String() + ext
+	tmpPath := utils.TempFilePath(filename)
 
 	out, err := os.Create(tmpPath)
 	if err != nil {
@@ -227,8 +222,6 @@ func (a *AdminServiceImpl) UpdateProfilePhoto(ctx context.Context, userID uuid.U
 
 	_, _ = io.Copy(out, f)
 
-	ext := filepath.Ext(foto.Filename)
-	filename := uuid.New().String() + ext
 	pl := payload.PhotoUploadPayload{
 		ID:     userID,
 		Folder: "betapa_antik/foto_admin",
