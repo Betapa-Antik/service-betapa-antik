@@ -85,7 +85,7 @@ func (k *KecamatanController) GetAllKecamatan(ctx echo.Context) error {
 
 	items := make([]kecamatanresponse.KecamatanResponse, len(data))
 	for i, v := range data {
-		items[i] = kecamatanresponse.ToKecamatanResponse(*v)
+		items[i] = kecamatanresponse.ToKecamatanResponse(v)
 	}
 
 	return response.PaginatedSuccess(ctx, http.StatusOK, "Kecamatan Berhasil diambil", items, pagination)

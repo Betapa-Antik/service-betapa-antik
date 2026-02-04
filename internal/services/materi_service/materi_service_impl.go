@@ -7,6 +7,7 @@ import (
 	gambarrepo "betapa-antik-service/internal/repositories/gambar_repo"
 	materigambarrepo "betapa-antik-service/internal/repositories/materI_gambar_repo"
 	materirepo "betapa-antik-service/internal/repositories/materi_repo"
+	"betapa-antik-service/pkg/cache"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
 	"betapa-antik-service/pkg/utils"
 	"betapa-antik-service/pkg/workers/payload"
@@ -114,12 +115,9 @@ func (m *MateriServiceImpl) GetAllMateri(ctx context.Context, req materirequest.
 	key := fmt.Sprintf("materies:all:search:%s:page:%d:limit:%d", req.Search, req.Page, req.Limit)
 	val, err := configs.GetRedis(ctx, key)
 	if err == nil && val != "" {
-		var (
-			materiList []*models.Materi
-			total      int
-		)
-		if err := json.Unmarshal([]byte(val), &materiList); err == nil {
-			return materiList, total, nil
+		var cached cache.CacheMateri
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			return cached.Materies, cached.Total, nil
 		}
 	}
 
@@ -143,10 +141,12 @@ func (m *MateriServiceImpl) GetAllMateri(ctx context.Context, req materirequest.
 		data = []*models.Materi{}
 	}
 
-	buf, _ := json.Marshal(map[string]any{
-		"materies": data,
-		"total":    total,
-	})
+	cacheData := cache.CacheMateri{
+		Materies: data,
+		Total:    total,
+	}
+
+	buf, _ := json.Marshal(cacheData)
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -192,11 +192,20 @@ func (m *MateriServiceImpl) UpdateMateri(ctx context.Context, id uuid.UUID, req 
 			return errormessage.NewCustomError(err, "Gagal mengambil materi", 500)
 		}
 
-		materi.Judul = req.Judul
-		materi.Deskripsi = req.Deskripsi
-		materi.CatatanTambahan = req.CatatanTambahan
+		updates := map[string]interface{}{}
 
-		if err := repoTx.UpdateMateri(ctx, materi.ID, materi); err != nil {
+		if req.Judul != "" {
+			updates["judul"] = req.Judul
+		}
+		if req.Deskripsi != "" {
+			updates["deskripsi"] = req.Deskripsi
+		}
+
+		if *req.CatatanTambahan != "" {
+			updates["catatan_tambahan"] = req.CatatanTambahan
+		}
+
+		if err := repoTx.UpdateMateri(ctx, materi.ID, updates); err != nil {
 			return errormessage.NewCustomError(err, "Gagal mengupdate materi", 500)
 		}
 		if len(req.HapusGambarIDs) > 0 {

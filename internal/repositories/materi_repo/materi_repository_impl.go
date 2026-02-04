@@ -94,8 +94,8 @@ func (m *MateriRepositoryImpl) GetByID(ctx context.Context, id uuid.UUID) (*mode
 }
 
 // UpdateMateri implements [IMateriRepository].
-func (m *MateriRepositoryImpl) UpdateMateri(ctx context.Context, id uuid.UUID, data *models.Materi) error {
-	return m.db.WithContext(ctx).Model(&models.Materi{}).Where("id = ?", id).Updates(data).Error
+func (m *MateriRepositoryImpl) UpdateMateri(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error {
+	return m.db.WithContext(ctx).Model(&models.Materi{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // UpdateStatusMateri implements [IMateriRepository].

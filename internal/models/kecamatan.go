@@ -18,3 +18,9 @@ type Kecamatan struct {
 func (Kecamatan) TableName() string {
 	return "kecamatan"
 }
+
+type KecamatanWithTotal struct {
+	Kecamatan
+	TotalKelurahan int `json:"total_kelurahan"`
+	TotalPuskesmas int `json:"total_puskesmas"`
+}

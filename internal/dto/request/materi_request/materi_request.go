@@ -20,8 +20,8 @@ type GetAllMateriRequest struct {
 }
 
 type UpdateMateriRequest struct {
-	Judul           string                  `form:"judul" validate:"required"`
-	Deskripsi       string                  `form:"deskripsi" validate:"required"`
+	Judul           string                  `form:"judul" validate:"omitempty"`
+	Deskripsi       string                  `form:"deskripsi" validate:"omitempty"`
 	CatatanTambahan *string                 `form:"catatan_tambahan,omitempty"`
 	GambarBaru      []*multipart.FileHeader `form:"gambar_baru,omitempty"`
 	HapusGambarIDs  []uuid.UUID             `form:"hapus_gambar_ids,omitempty"`

@@ -33,9 +33,9 @@ func (k *KelurahanRepositoryImpl) CreateKelurahan(ctx context.Context, data *mod
 }
 
 // GetAllKelurahan implements [IKelurahanRepository].
-func (k *KelurahanRepositoryImpl) GetAllKelurahan(ctx context.Context, kecamatanId uuid.UUID, limit int, offset int, search string) ([]*models.Kelurahan, int, error) {
+func (k *KelurahanRepositoryImpl) GetAllKelurahan(ctx context.Context, kecamatanId uuid.UUID, limit int, offset int, search string) ([]models.Kelurahan, int, error) {
 	var (
-		kelurahanList []*models.Kelurahan
+		kelurahanList []models.Kelurahan
 		count         int64
 	)
 

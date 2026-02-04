@@ -17,7 +17,7 @@ type IMateriRepository interface {
 
 	GetAllMateri(ctx context.Context, limit, offset int, search string) ([]*models.Materi, int, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Materi, error)
-	UpdateMateri(ctx context.Context, id uuid.UUID, data *models.Materi) error
+	UpdateMateri(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error
 	UpdateStatusMateri(ctx context.Context, id uuid.UUID, status string) error
 	DeleteMateri(ctx context.Context, id uuid.UUID) error
 }

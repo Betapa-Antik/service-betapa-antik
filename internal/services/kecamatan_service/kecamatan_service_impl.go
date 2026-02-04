@@ -5,6 +5,7 @@ import (
 	kecamatanrequest "betapa-antik-service/internal/dto/request/kecamatan_request"
 	"betapa-antik-service/internal/models"
 	kecamatanrepo "betapa-antik-service/internal/repositories/kecamatan_repo"
+	"betapa-antik-service/pkg/cache"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
 	"betapa-antik-service/pkg/utils"
 	"betapa-antik-service/pkg/workers/payload"
@@ -94,22 +95,42 @@ func (k *KecamatanServiceImpl) CreateKecamatan(ctx context.Context, req kecamata
 }
 
 // GetAllKecamatan implements [IKecamatanService].
-func (k *KecamatanServiceImpl) GetAllKecamatan(ctx context.Context, req kecamatanrequest.GetAllKecamatanRequest) ([]*models.Kecamatan, int, error) {
-	key := fmt.Sprintf("kecamatan:all:search:%s:page:%d:limit:%d", req.Search, req.Page, req.Limit)
+func (k *KecamatanServiceImpl) GetAllKecamatan(
+	ctx context.Context,
+	req kecamatanrequest.GetAllKecamatanRequest,
+) ([]models.KecamatanWithTotal, int, error) {
+
+	key := fmt.Sprintf("kecamatan:all:search:%s:page:%d:limit:%d",
+		req.Search, req.Page, req.Limit,
+	)
+
+	// ==========================
+	// GET CACHE
+	// ==========================
 	val, err := configs.GetRedis(ctx, key)
 	if err == nil && val != "" {
-		var (
-			kecamatanList []*models.Kecamatan
-			total         int
-		)
-		if err := json.Unmarshal([]byte(val), &kecamatanList); err == nil {
-			return kecamatanList, total, nil
+
+		var cached cache.CacheKecamatan
+
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			return cached.Kecamatans, cached.Total, nil
 		}
 	}
 
+	// ==========================
+	// QUERY DB
+	// ==========================
 	page := req.Page
 	limit := req.Limit
 	search := req.Search
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
 	offset := (page - 1) * limit
 
 	data, total, err := k.kecamatanRepo.GetAllKecamatan(ctx, limit, offset, search)
@@ -118,27 +139,33 @@ func (k *KecamatanServiceImpl) GetAllKecamatan(ctx context.Context, req kecamata
 	}
 
 	if len(data) == 0 {
-		data = []*models.Kecamatan{}
+		data = []models.KecamatanWithTotal{}
 	}
 
-	buf, _ := json.Marshal(map[string]any{
-		"kecamatans": data,
-		"total":      total,
-	})
+	// ==========================
+	// SET CACHE
+	// ==========================
+	cacheData := cache.CacheKecamatan{
+		Kecamatans: data,
+		Total:      total,
+	}
+
+	buf, _ := json.Marshal(cacheData)
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_ = configs.SetRedis(ctx, key, buf, time.Minute*30)
+
+	_ = configs.SetRedis(ctx, key, buf, time.Minute*10)
 
 	return data, total, nil
 }
 
 // GetKecamatanById implements [IKecamatanService].
-func (k *KecamatanServiceImpl) GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.Kecamatan, error) {
+func (k *KecamatanServiceImpl) GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.KecamatanWithTotal, error) {
 	key := fmt.Sprintf("kecamatan:%s", kecamatanId)
 	val, err := configs.GetRedis(ctx, key)
 	if err == nil && val != "" {
-		var kecamatan models.Kecamatan
+		var kecamatan models.KecamatanWithTotal
 		if err := json.Unmarshal([]byte(val), &kecamatan); err == nil {
 			return &kecamatan, nil
 		}

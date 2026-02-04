@@ -5,6 +5,7 @@ import (
 	kelurahanrequest "betapa-antik-service/internal/dto/request/kelurahan_request"
 	"betapa-antik-service/internal/models"
 	kelurahanrepo "betapa-antik-service/internal/repositories/kelurahan_repo"
+	"betapa-antik-service/pkg/cache"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
 	"betapa-antik-service/pkg/utils"
 	"context"
@@ -35,6 +36,20 @@ func (k *KelurahanServiceImpl) invalidateKelurahanCache(ctx context.Context, kel
 	}
 
 	_ = configs.DeleteRedis(ctx, keyId)
+
+	k.invalidateKecamatanCache(ctx, kecamatanId)
+}
+
+func (k *KelurahanServiceImpl) invalidateKecamatanCache(ctx context.Context, kecamatanId uuid.UUID) {
+	// hapus cache detail kecamatan
+	keyId := fmt.Sprintf("kecamatan:%s", kecamatanId.String())
+	_ = configs.DeleteRedis(ctx, keyId)
+
+	// hapus semua cache list kecamatan
+	iter := k.rdb.Scan(ctx, 0, "kecamatan:all:*", 0).Iterator()
+	for iter.Next(ctx) {
+		_ = configs.DeleteRedis(ctx, iter.Val())
+	}
 }
 
 // CreateKelurahan implements [IKelurahanService].
@@ -62,16 +77,13 @@ func (k *KelurahanServiceImpl) CreateKelurahan(ctx context.Context, req keluraha
 }
 
 // GetAllKelurahan implements [IKelurahanService].
-func (k *KelurahanServiceImpl) GetAllKelurahan(ctx context.Context, req kelurahanrequest.GetAllKelurahanRequest) ([]*models.Kelurahan, int, error) {
+func (k *KelurahanServiceImpl) GetAllKelurahan(ctx context.Context, req kelurahanrequest.GetAllKelurahanRequest) ([]models.Kelurahan, int, error) {
 	key := fmt.Sprintf("kelurahan:all:kecamatan:%s:search:%s:page:%d:limit:%d", req.KecamatanId, req.Search, req.Page, req.Limit)
 	val, err := configs.GetRedis(ctx, key)
 	if err == nil && val != "" {
-		var (
-			kelurahanList []*models.Kelurahan
-			total         int
-		)
-		if err := json.Unmarshal([]byte(val), &kelurahanList); err == nil {
-			return kelurahanList, total, nil
+		var cached cache.CacheKelurahan
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			return cached.Kelurahans, cached.Total, nil
 		}
 	}
 
@@ -93,13 +105,15 @@ func (k *KelurahanServiceImpl) GetAllKelurahan(ctx context.Context, req keluraha
 	}
 
 	if len(data) == 0 {
-		data = []*models.Kelurahan{}
+		data = []models.Kelurahan{}
 	}
 
-	buf, _ := json.Marshal(map[string]any{
-		"kelurahans": data,
-		"total":      total,
-	})
+	cacheData := cache.CacheKelurahan{
+		Kelurahans: data,
+		Total:      total,
+	}
+
+	buf, _ := json.Marshal(cacheData)
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()

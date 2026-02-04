@@ -10,7 +10,7 @@ import (
 
 type IKelurahanService interface {
 	CreateKelurahan(ctx context.Context, req kelurahanrequest.CreateKelurahanRequest) error
-	GetAllKelurahan(ctx context.Context, req kelurahanrequest.GetAllKelurahanRequest) ([]*models.Kelurahan, int, error)
+	GetAllKelurahan(ctx context.Context, req kelurahanrequest.GetAllKelurahanRequest) ([]models.Kelurahan, int, error)
 	GetKelurahanById(ctx context.Context, kelurahanId uuid.UUID) (*models.Kelurahan, error)
 	UpdateKelurahan(ctx context.Context, kelurahanId uuid.UUID, req kelurahanrequest.UpdateKelurahanRequest) error
 	DeleteKelurahan(ctx context.Context, kelurahanId uuid.UUID) error

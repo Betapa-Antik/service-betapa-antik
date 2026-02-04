@@ -10,8 +10,8 @@ import (
 
 type IKecamatanService interface {
 	CreateKecamatan(ctx context.Context, req kecamatanrequest.CreateKecamatanRequest) error
-	GetAllKecamatan(ctx context.Context, req kecamatanrequest.GetAllKecamatanRequest) ([]*models.Kecamatan, int, error)
-	GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.Kecamatan, error)
+	GetAllKecamatan(ctx context.Context, req kecamatanrequest.GetAllKecamatanRequest) ([]models.KecamatanWithTotal, int, error)
+	GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.KecamatanWithTotal, error)
 	UpdateKecamatan(ctx context.Context, kecamatanId uuid.UUID, req kecamatanrequest.UpdateKecamatanRequest) error
 	DeleteKecamatan(ctx context.Context, kecamatanId uuid.UUID) error
 }

@@ -38,43 +38,90 @@ func (k *KecamatanRepositoryImpl) Update(ctx context.Context, kecamatanId uuid.U
 }
 
 // GetAllKecamatan implements [IKecamatanRepository].
-func (k *KecamatanRepositoryImpl) GetAllKecamatan(ctx context.Context, limit int, ofset int, search string) ([]*models.Kecamatan, int, error) {
+func (k *KecamatanRepositoryImpl) GetAllKecamatan(
+	ctx context.Context,
+	limit int,
+	offset int,
+	search string,
+) ([]models.KecamatanWithTotal, int, error) {
+
 	var (
-		kecamatanList []*models.Kecamatan
-		count         int64
+		kecamatanList []models.KecamatanWithTotal
+		totalData     int64
 	)
 
 	if limit <= 0 {
 		limit = 10
 	}
 
-	query := k.db.WithContext(ctx).Model(&models.Kecamatan{})
+	// ============================
+	// 1. COUNT Kecamatan saja (FAST)
+	// ============================
+	countQuery := k.db.WithContext(ctx).
+		Model(&models.Kecamatan{})
 
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		query = query.Where("nama_kecamatan ILIKE ? OR kode_wilayah ILIKE ?", searchPattern, searchPattern)
+		countQuery = countQuery.Where(
+			"nama_kecamatan ILIKE ? OR kode_wilayah ILIKE ?",
+			searchPattern,
+			searchPattern,
+		)
 	}
 
-	err := query.Count(&count).Error
-	if err != nil {
+	if err := countQuery.Count(&totalData).Error; err != nil {
 		return nil, 0, err
 	}
 
-	err = query.Limit(limit).Offset(ofset).Order("created_at DESC").Find(&kecamatanList).Error
-	if err != nil {
+	// ============================
+	// 2. DATA Query + Total Kelurahan
+	// ============================
+	dataQuery := k.db.WithContext(ctx).
+		Table("kecamatan").
+		Select(`
+			kecamatan.*,
+			(SELECT COUNT(1) FROM kelurahan WHERE kelurahan.kecamatan_id = kecamatan.id) as total_kelurahan,
+    		(SELECT COUNT(1) FROM puskesmas WHERE puskesmas.kecamatan_id = kecamatan.id) as total_puskesmas
+		`).
+		Order("kecamatan.created_at DESC").
+		Limit(limit).
+		Offset(offset)
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		dataQuery = dataQuery.Where(
+			"kecamatan.nama_kecamatan ILIKE ? OR kecamatan.kode_wilayah ILIKE ?",
+			searchPattern,
+			searchPattern,
+		)
+	}
+
+	if err := dataQuery.Find(&kecamatanList).Error; err != nil {
 		return nil, 0, err
 	}
-	return kecamatanList, int(count), nil
+
+	return kecamatanList, int(totalData), nil
 }
 
 // GetKecamatanById implements [IKecamatanRepository].
-func (k *KecamatanRepositoryImpl) GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.Kecamatan, error) {
-	var kecamatan models.Kecamatan
-	err := k.db.WithContext(ctx).Where("id = ?", kecamatanId).First(&kecamatan).Error
+func (k *KecamatanRepositoryImpl) GetKecamatanById(ctx context.Context, kecamatanId uuid.UUID) (*models.KecamatanWithTotal, error) {
+	var result models.KecamatanWithTotal
+
+	err := k.db.WithContext(ctx).
+		Model(&models.Kecamatan{}).
+		Select(`
+        kecamatan.*,
+        (SELECT COUNT(1) FROM kelurahan WHERE kelurahan.kecamatan_id = kecamatan.id) as total_kelurahan,
+    	(SELECT COUNT(1) FROM puskesmas WHERE puskesmas.kecamatan_id = kecamatan.id) as total_puskesmas
+		`).
+		Where("kecamatan.id = ?", kecamatanId).
+		First(&result).Error
+
 	if err != nil {
 		return nil, err
 	}
-	return &kecamatan, nil
+
+	return &result, nil
 }
 
 // DeleteKecamatan implements [IKecamatanRepository].
