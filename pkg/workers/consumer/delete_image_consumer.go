@@ -107,8 +107,8 @@ func handleDeleteProcess(ctx context.Context, msg amqp.Delivery, cloudinary data
 
 	// Invalidate Cache jika ada yang berhasil dihapus
 	if successDelete {
-		_ = configs.DeleteRedis(ctx, "materies:*")
-		_ = configs.DeleteRedis(ctx, "materi:*")
+		// _ = configs.DeleteRedis(ctx, "materies:*")
+		// _ = configs.DeleteRedis(ctx, "materi:*")
 	}
 
 	// ✅ Akhiri dengan Ack

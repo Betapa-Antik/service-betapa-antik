@@ -5,4 +5,5 @@ const (
 	MateriImageUploadQueue = "materi.image.upload"
 	QueueDeleteImage       = "delete_image_queue"
 	KecamatanUploadQueue   = "kecamatan.photo.upload"
+	PuskesmasUploadQueue   = "puskesmas.photo.upload"
 )
