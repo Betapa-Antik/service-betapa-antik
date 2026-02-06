@@ -29,3 +29,10 @@ type PuskesmasWithTotal struct {
 	Puskesmas
 	TotalPetugas int `json:"total_petugas"`
 }
+
+type SelectPuskesmas struct {
+	ID            uuid.UUID `json:"id"`
+	NamaPuskesmas string    `json:"nama_puskesmas"`
+	NamaKecamatan string    `json:"nama_kecamatan"`
+	NamaKelurahan string    `json:"nama_kelurahan"`
+}

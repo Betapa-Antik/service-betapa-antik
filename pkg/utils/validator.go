@@ -19,8 +19,12 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func NewCustomValidator() echo.Validator {
+	v := validator.New()
+
+	// ✅ Register custom password validator
+	v.RegisterValidation("password", PasswordValidator)
 	return &CustomValidator{
-		validator: validator.New(),
+		validator: v,
 	}
 }
 
@@ -46,6 +50,11 @@ func ParseValidationError(err error) map[string]string {
 				message = fmt.Sprintf("%s harus format email", fieldName)
 			case "url":
 				message = fmt.Sprintf("%s harus format URL", fieldName)
+			case "password":
+				message = fmt.Sprintf("%s minimal 8 karakter dan harus ada huruf besar, kecil, angka, dan simbol", fieldName)
+
+			case "eqfield":
+				message = fmt.Sprintf("%s harus sama dengan %s", fieldName, fieldError.Param())
 			default:
 				message = fmt.Sprintf("%s validasi gagal pada %s", fieldName, tag)
 			}

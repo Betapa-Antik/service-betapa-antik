@@ -12,6 +12,7 @@ type AdminResponse struct {
 	Foto        string    `json:"foto"`
 	NamaLengkap string    `json:"nama_lengkap"`
 	Email       string    `json:"email"`
+	Status      string    `json:"status"`
 	CreatedAt   string    `json:"created_at"`
 	UpdatedAt   string    `json:"updated_at"`
 }
@@ -22,6 +23,7 @@ func ToAdminResponse(u models.User) AdminResponse {
 		Foto:        u.Foto,
 		NamaLengkap: u.NamaLengkap,
 		Email:       u.Email,
+		Status:      u.Status,
 		CreatedAt:   utils.FormatDate(u.CreatedAt),
 		UpdatedAt:   utils.FormatDate(u.UpdatedAt),
 	}

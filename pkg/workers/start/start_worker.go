@@ -14,6 +14,7 @@ func StartWorker(db *gorm.DB, cldSvc datasource.CloudinaryService) {
 	go consumer.DeleteImageConsumer(context.Background(), cldSvc)
 	go consumer.KecamatanPhotoConsumer(context.Background(), db, cldSvc)
 	go consumer.PuskesmasPhotoConsumer(context.Background(), db, cldSvc)
+	go consumer.PetugasPhotoConsumer(context.Background(), db, cldSvc)
 
 	select {}
 }

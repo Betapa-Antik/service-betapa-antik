@@ -6,4 +6,5 @@ const (
 	QueueDeleteImage       = "delete_image_queue"
 	KecamatanUploadQueue   = "kecamatan.photo.upload"
 	PuskesmasUploadQueue   = "puskesmas.photo.upload"
+	PetugasUploadQueue     = "petugas.photo.upload"
 )

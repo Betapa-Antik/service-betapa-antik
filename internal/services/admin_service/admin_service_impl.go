@@ -61,6 +61,7 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req *adminrequest.Creat
 		Email:       req.Email,
 		RoleID:      role.ID,
 		KataSandi:   hashed,
+		Status:      models.UserStatusActive,
 	}
 
 	// create user inside transaction

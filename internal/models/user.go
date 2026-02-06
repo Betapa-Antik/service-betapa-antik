@@ -6,6 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	UserStatusPending   = "pending"
+	UserStatusReject    = "reject"
+	UserStatusApproved  = "approved"
+	UserStatusNonActive = "non-active"
+	UserStatusActive    = "active"
+)
+
 type User struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	Foto        string     `gorm:"type:varchar(255);not null" json:"foto"`
@@ -17,6 +25,7 @@ type User struct {
 	RoleID      uuid.UUID  `gorm:"type:uuid;not null;foreignKey:RoleID;references:ID" json:"role_id"`
 	Role        Role       `json:"role,omitempty"`
 	KataSandi   string     `gorm:"type:varchar(255);not null" json:"kata_sandi"`
+	Status      string     `gorm:"type:varchar(50);not null" json:"status"`
 	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }

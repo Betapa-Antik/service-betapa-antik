@@ -3,7 +3,7 @@ package consumer
 import (
 	"betapa-antik-service/configs"
 	datasource "betapa-antik-service/internal/dataSource"
-	puskesmasrepo "betapa-antik-service/internal/repositories/puskesmas_repo"
+	petugasrepo "betapa-antik-service/internal/repositories/petugas_repo"
 	rabbitmq "betapa-antik-service/pkg/constant/rabbitMQ"
 	"betapa-antik-service/pkg/workers/payload"
 	"context"
@@ -16,10 +16,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func PuskesmasPhotoConsumer(ctx context.Context, db *gorm.DB, cld datasource.CloudinaryService) error {
-	puskesmasRepo := puskesmasrepo.NewPuskesmasRepositoryImpl(db)
+func PetugasPhotoConsumer(ctx context.Context, db *gorm.DB, cld datasource.CloudinaryService) error {
+	petugasRepo := petugasrepo.NewPetugasRepositoryImpl(db)
 
-	// Bungkus dalam fungsi untuk memudahkan retry saat koneksi hilang
 	go func() {
 		for {
 			conn := configs.GetRabbitConn()
@@ -35,11 +34,10 @@ func PuskesmasPhotoConsumer(ctx context.Context, db *gorm.DB, cld datasource.Clo
 				continue
 			}
 
-			// Set QoS agar consumer tidak kewalahan (stuck)
 			_ = ch.Qos(1, 0, false)
 
 			msgs, err := ch.Consume(
-				rabbitmq.PuskesmasUploadQueue,
+				rabbitmq.PetugasUploadQueue,
 				"", false, false, false, false, nil,
 			)
 			if err != nil {
@@ -47,25 +45,21 @@ func PuskesmasPhotoConsumer(ctx context.Context, db *gorm.DB, cld datasource.Clo
 				continue
 			}
 
-			log.Println("[RABBITMQ] puskesmas Consumer started...")
+			log.Println("[RabbitMQ] petugas consumer started...")
 
 			for d := range msgs {
-				// Proses payload...
-				handlePuskesmasUpload(ctx, d, puskesmasRepo, cld)
+				handlePetugasUpload(ctx, d, petugasRepo, cld)
 			}
 
-			// Jika loop msgs berhenti, artinya channel/conn bermasalah
-			log.Println("[RABBITMQ] Channel closed, retrying in 5s...")
+			log.Println("[RABBITMQ] channel closed, retrying in 5s...")
 			ch.Close()
 			time.Sleep(5 * time.Second)
 		}
 	}()
-
 	return nil
 }
 
-// Pisahkan logic agar bersih
-func handlePuskesmasUpload(ctx context.Context, d amqp.Delivery, repo puskesmasrepo.IPuskesmasRepository, cld datasource.CloudinaryService) {
+func handlePetugasUpload(ctx context.Context, d amqp.Delivery, repo petugasrepo.IPetugasRepository, cld datasource.CloudinaryService) {
 	var p payload.PhotoUploadPayload
 	if err := json.Unmarshal(d.Body, &p); err != nil {
 		log.Printf("Invalid payload: %v", err)
@@ -89,19 +83,18 @@ func handlePuskesmasUpload(ctx context.Context, d amqp.Delivery, repo puskesmasr
 			lastPhotoURL = res.URL
 		}
 	}
+
 	updates := map[string]interface{}{}
 	if lastPhotoURL != "" {
-		// PERBAIKAN: Pastikan di Repository menggunakan:
-		// db.Model(&Kecamatan{}).Where("id = ?", id).Update("foto", lastPhotoURL)
 		updates["foto"] = lastPhotoURL
-		err := repo.UpdatePuskesmas(ctx, p.ID, updates)
+		err := repo.UpdateAkunPetugas(ctx, p.ID, updates)
 		if err != nil {
 			log.Printf("DB Update failed: %v", err)
-			_ = d.Nack(false, true) // Requeue agar dicoba lagi
+			_ = d.Nack(false, true)
 			return
 		}
-		_ = configs.DeleteRedis(ctx, "puskesmas:"+p.ID.String())
-		_ = configs.DeleteRedis(ctx, "puskesmas:all:*")
+
+		_ = configs.DeleteRedis(ctx, "profile:"+p.ID.String())
 	}
 
 	_ = d.Ack(false)
