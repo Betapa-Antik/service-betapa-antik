@@ -1,19 +1,23 @@
 package admincontroller
 
 import (
+	"math"
 	"net/http"
 
 	adminrequest "betapa-antik-service/internal/dto/request/admin_request"
 	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	adminresponse "betapa-antik-service/internal/dto/response/admin_response"
 	authresponse "betapa-antik-service/internal/dto/response/auth_response"
+	petugasresponse "betapa-antik-service/internal/dto/response/petugas_response"
 	"betapa-antik-service/internal/models"
 	adminservice "betapa-antik-service/internal/services/admin_service"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
+	"betapa-antik-service/pkg/constant/response"
 	resp "betapa-antik-service/pkg/constant/response"
 	"betapa-antik-service/pkg/utils"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -168,4 +172,92 @@ func (c *AdminController) Logout(ctx echo.Context) error {
 		return resp.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
 	}
 	return resp.Success(ctx, http.StatusOK, "Logout berhasil", nil)
+}
+
+func (c *AdminController) ApproveOrRejecAkunPetugas(ctx echo.Context) error {
+	petugasId, err := uuid.Parse(ctx.Param("petugasId"))
+	if err != nil {
+		return resp.Error(ctx, http.StatusBadRequest, "ID Tidak valid", err.Error())
+	}
+	var req adminrequest.UpdateStatusPetugas
+	if err := ctx.Bind(&req); err != nil {
+		return resp.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return resp.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	if err := c.adminService.ApproveOrRejectAkunPetugas(ctx.Request().Context(), petugasId, req); err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return resp.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return resp.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return resp.Success(ctx, http.StatusOK, "Berhasil update status petugas", nil)
+}
+
+func (c *AdminController) ActiveOrNonActiveAkunPetugas(ctx echo.Context) error {
+	petugasId, err := uuid.Parse(ctx.Param("petugasId"))
+	if err != nil {
+		return resp.Error(ctx, http.StatusBadRequest, "ID Tidak valid", err.Error())
+	}
+	var req adminrequest.UpdateStatusPetugas
+	if err := ctx.Bind(&req); err != nil {
+		return resp.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return resp.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	if err := c.adminService.ActiveOrNonActiveAkunPetugas(ctx.Request().Context(), petugasId, req); err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return resp.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return resp.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return resp.Success(ctx, http.StatusOK, "Berhasil update status petugas", nil)
+}
+
+func (c *AdminController) FindPetugas(ctx echo.Context) error {
+	req := new(adminrequest.GetAllPetugasRequest)
+	if err := ctx.Bind(req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+
+	data, total, err := c.adminService.FindPetugas(ctx.Request().Context(), *req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	page := req.Page
+	limit := req.Limit
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	pagination := response.PaginationMeta{
+		CurrentPage: page,
+		PerPage:     limit,
+		TotalData:   int(total),
+		TotalPages:  totalPages,
+	}
+
+	items := make([]petugasresponse.PetugasPuskesmasResponse, len(data))
+	for i, v := range data {
+		items[i] = petugasresponse.ToPetugasPuskesmasResponse(*v)
+	}
+
+	return resp.PaginatedSuccess(ctx, http.StatusOK, "Petugas berhasil diambil", items, pagination)
 }

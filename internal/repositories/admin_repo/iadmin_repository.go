@@ -12,4 +12,9 @@ type IAdminRepository interface {
 	Update(ctx context.Context, id uuid.UUID, data *models.User) error
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*models.User, error)
+
+	//Manage Petugas
+	FindPetugas(ctx context.Context, limit, offset int, search string) ([]*models.User, int, error)
+	ApproveOrRejectAkunPetugas(ctx context.Context, petugasId uuid.UUID, status string) error
+	ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, status string) error
 }

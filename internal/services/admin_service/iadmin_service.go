@@ -18,4 +18,9 @@ type IAdminService interface {
 	UpdateProfilePhoto(ctx context.Context, userID uuid.UUID, foto *multipart.FileHeader) error
 	GetProfile(ctx context.Context, userID uuid.UUID) (*models.User, error)
 	Logout(ctx context.Context, token string) error
+
+	//Manage Petugas
+	FindPetugas(ctx context.Context, req adminrequest.GetAllPetugasRequest) ([]*models.User, int, error)
+	ApproveOrRejectAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
+	ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
 }

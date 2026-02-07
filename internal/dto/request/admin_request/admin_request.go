@@ -16,3 +16,13 @@ type ProfileRequest struct {
 	Email       string `json:"email" validate:"required,email"`
 	NamaLengkap string `json:"nama_lengkap" validate:"required"`
 }
+
+type UpdateStatusPetugas struct {
+	Status string `json:"status" validate:"required"`
+}
+
+type GetAllPetugasRequest struct {
+	Page   int    `query:"page" validate:"omitempty,min=1"`
+	Limit  int    `query:"limit" validate:"omitempty,min=1,max=100"`
+	Search string `query:"search" validate:"omitempty"`
+}

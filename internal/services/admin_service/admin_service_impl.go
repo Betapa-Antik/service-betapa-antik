@@ -278,3 +278,70 @@ func (a *AdminServiceImpl) Logout(ctx context.Context, token string) error {
 	}
 	return nil
 }
+
+// ActiveOrNonActiveAkunPetugas implements [IAdminService].
+func (a *AdminServiceImpl) ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error {
+	petugas, err := a.adminRepo.FindByID(ctx, petugasId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errormessage.NewCustomError(errormessage.ErrNotFound, "Akun tidak ditemukan", 404)
+		}
+		return errormessage.NewCustomError(err, "Gagal memeriksa Akun", 500)
+	}
+
+	petugas.Status = req.Status
+	if err := a.adminRepo.ActiveOrNonActiveAkunPetugas(ctx, petugas.ID, req.Status); err != nil {
+		return errormessage.NewCustomError(err, "Gagal update status akun petugas", 500)
+	}
+
+	_ = configs.DeleteRedis(ctx, "profile:"+petugas.ID.String())
+
+	return nil
+}
+
+// ApproveOrRejectAkunPetugas implements [IAdminService].
+func (a *AdminServiceImpl) ApproveOrRejectAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error {
+	petugas, err := a.adminRepo.FindByID(ctx, petugasId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errormessage.NewCustomError(errormessage.ErrNotFound, "Akun tidak ditemukan", 404)
+		}
+		return errormessage.NewCustomError(err, "Gagal memeriksa Akun", 500)
+	}
+
+	petugas.Status = req.Status
+	if err := a.adminRepo.ApproveOrRejectAkunPetugas(ctx, petugas.ID, req.Status); err != nil {
+		return errormessage.NewCustomError(err, "Gagal update status akun petugas", 500)
+	}
+
+	_ = configs.DeleteRedis(ctx, "profile:"+petugas.ID.String())
+
+	return nil
+}
+
+// FindPetugas implements [IAdminService].
+func (a *AdminServiceImpl) FindPetugas(ctx context.Context, req adminrequest.GetAllPetugasRequest) ([]*models.User, int, error) {
+	page := req.Page
+	limit := req.Limit
+	search := req.Search
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	data, total, err := a.adminRepo.FindPetugas(ctx, limit, offset, search)
+	if err != nil {
+		return nil, 0, errormessage.NewCustomError(err, "Gagal mengambil daftar petugas", 500)
+	}
+
+	if len(data) == 0 {
+		data = []*models.User{}
+	}
+
+	return data, total, nil
+}

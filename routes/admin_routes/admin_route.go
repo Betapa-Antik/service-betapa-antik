@@ -26,4 +26,10 @@ func AdminRoutes(e *echo.Group, db *gorm.DB) {
 	e.PUT("/profile/photo", ctrl.UpdateProfilePhoto, middlewares.RequireRole("admin", repo))
 	// logout
 	e.POST("/logout", ctrl.Logout, middlewares.RequireRole("admin", repo))
+
+	am := e.Group("", middlewares.RequireRole("admin", repo))
+	//Manage Petugas
+	am.GET("/petugas", ctrl.FindPetugas)
+	am.PUT("/approve-or-reject-petugas/:petugasId", ctrl.ApproveOrRejecAkunPetugas)
+	am.PUT("/active-or-nonactive-petugas/:petugasId", ctrl.ActiveOrNonActiveAkunPetugas)
 }
