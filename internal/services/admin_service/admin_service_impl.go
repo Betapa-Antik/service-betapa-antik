@@ -124,7 +124,7 @@ func (a *AdminServiceImpl) Login(ctx context.Context, req *authrequest.LoginRequ
 		if _, _, incErr := utils.IncrementLoginAttempt(ctx, req.Email); incErr != nil {
 			// log but ignore
 		}
-		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email atau kata sandi salah", 401)
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email salah", 401)
 	}
 
 	// check password
@@ -134,7 +134,7 @@ func (a *AdminServiceImpl) Login(ctx context.Context, req *authrequest.LoginRequ
 		if incErr == nil && count >= utils.LoginAttemptLimit {
 			return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Terlalu banyak percobaan login, coba lagi setelah "+ttl.String(), 429)
 		}
-		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email atau kata sandi salah", 401)
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Kata sandi salah", 401)
 	}
 
 	// success - reset attempts

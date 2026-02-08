@@ -32,7 +32,7 @@ func (a *AdminRepositoryImpl) Update(ctx context.Context, id uuid.UUID, data *mo
 // FindByEmail implements [IAdminRepository].
 func (a *AdminRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
-	if err := a.db.WithContext(ctx).Preload("Role").Where("email = ?", email).First(&user).Error; err != nil {
+	if err := a.db.WithContext(ctx).Preload("Role").Joins("LEFT JOIN role ON role.id = \"user\".role_id").Where("email = ? AND status = ? AND role.nama = ?", email, models.UserStatusActive, "ADMIN").First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil

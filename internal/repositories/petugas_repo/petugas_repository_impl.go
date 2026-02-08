@@ -87,3 +87,23 @@ func (p *PetugasRepositoryImpl) RegisterAkunPetugas(ctx context.Context, data *m
 func (p *PetugasRepositoryImpl) UpdateAkunPetugas(ctx context.Context, petugasId uuid.UUID, updates map[string]interface{}) error {
 	return p.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", petugasId).Updates(updates).Error
 }
+
+// FindAkunPetugas implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) FindAkunPetugasById(ctx context.Context, petugasId uuid.UUID) (*models.User, error) {
+	var petugas models.User
+	if err := p.db.WithContext(ctx).Preload("Role").Preload("Puskesmas").Joins("LEFT JOIN role ON role.id = \"user\".role_id").Where("\"user\".id = ? AND role.nama = ?", petugasId, "PETUGAS PUSKESMAS").First(&petugas).Error; err != nil {
+		return nil, err
+	}
+
+	return &petugas, nil
+}
+
+// FindByEmail implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var petugas models.User
+	if err := p.db.WithContext(ctx).Preload("Role").Preload("Puskesmas").Joins("LEFT JOIN role ON role.id = \"user\".role_id").Where("\"user\".email = ? AND role.nama = ?", email, "PETUGAS PUSKESMAS").First(&petugas).Error; err != nil {
+		return nil, err
+	}
+
+	return &petugas, nil
+}

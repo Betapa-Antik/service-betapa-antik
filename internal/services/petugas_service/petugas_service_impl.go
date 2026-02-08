@@ -1,6 +1,8 @@
 package petugasservice
 
 import (
+	"betapa-antik-service/configs"
+	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	petugasrequest "betapa-antik-service/internal/dto/request/petugas_request"
 	"betapa-antik-service/internal/models"
 	petugasrepo "betapa-antik-service/internal/repositories/petugas_repo"
@@ -10,12 +12,15 @@ import (
 	"betapa-antik-service/pkg/workers/payload"
 	"betapa-antik-service/pkg/workers/producers"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -116,6 +121,149 @@ func (p *PetugasServiceImpl) RegisterAkunPetugas(ctx context.Context, req petuga
 			}
 			producers.PublishPetugasPhotoUpload(pl)
 		}
+	}
+	return nil
+}
+
+// LoginPetugas implements [IPetugasService].
+func (p *PetugasServiceImpl) LoginPetugas(ctx context.Context, req authrequest.LoginRequest) (*models.User, string, error) {
+	allowed, _, ttl, err := utils.IsLoginAllowed(ctx, req.Email)
+	if err != nil {
+		return nil, "", errormessage.NewCustomError(err, "Gagal memeriksa percobaan login", 500)
+	}
+
+	if !allowed {
+		return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Terlalu banyak percobaan login, coba lagi setelah "+ttl.String(), 429)
+	}
+
+	user, err := p.petugasRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		if _, _, incErr := utils.IncrementLoginAttempt(ctx, req.Email); incErr != nil {
+
+		}
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Email atau kata sandi salah", 401)
+	}
+	if user.Status != models.UserStatusActive {
+		return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Akun Belum diaktifkan", 403)
+	}
+	if err := utils.CheckPassword(user.KataSandi, req.Password); err != nil {
+		count, ttl, incErr := utils.IncrementLoginAttempt(ctx, req.Email)
+		if incErr == nil && count >= utils.LoginAttemptLimit {
+			return nil, "", errormessage.NewCustomError(errormessage.ErrForbidden, "Terlalu banyak percobaan login, coba lagi setelah"+ttl.String(), 429)
+		}
+		return nil, "", errormessage.NewCustomError(errormessage.ErrUnauthorized, "Kata Sandi salah", 401)
+	}
+
+	if err := utils.ResetLoginAttempt(ctx, req.Email); err != nil {
+		// non-fatal, log maybe
+	}
+
+	token, exp, err := utils.GenerateToken(user, 0)
+	if err != nil {
+		return nil, "", errormessage.NewCustomError(err, "Gagal membuat token", 500)
+	}
+	// store token in redis with ttl
+	ttlDur := time.Until(time.Unix(exp, 0))
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := configs.SetRedis(ctx, "auth:token:"+token, user.ID.String(), ttlDur); err != nil {
+		// non-fatal, but return error
+		return nil, "", errormessage.NewCustomError(err, "Gagal menyimpan token", 500)
+	}
+
+	return user, token, nil
+}
+
+// GetProfilePetugas implements [IPetugasService].
+func (p *PetugasServiceImpl) GetProfilePetugas(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	key := "profile:" + userID.String()
+	val, err := configs.GetRedis(ctx, key)
+	if err == nil && val != "" {
+		var u models.User
+		if err := json.Unmarshal([]byte(val), &u); err == nil {
+			return &u, nil
+		}
+	}
+
+	petugas, err := p.petugasRepo.FindAkunPetugasById(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := json.Marshal(petugas)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	_ = configs.SetRedis(ctx, key, string(b), 10*time.Minute)
+	return petugas, nil
+}
+
+// UpdateProfilePetugas implements [IPetugasService].
+func (p *PetugasServiceImpl) UpdateProfilePetugas(ctx context.Context, petugasId uuid.UUID, req petugasrequest.UpdatePetugasRequest) error {
+	return utils.RunInTransaction(p.petugasRepo.DB(), func(tx *gorm.DB) error {
+		repoTx := p.petugasRepo.WithTx(tx)
+
+		petugas, err := repoTx.FindAkunPetugasById(ctx, petugasId)
+		if err != nil {
+			return errormessage.NewCustomError(err, "Gagal mengambil petugas", 500)
+		}
+
+		updates := map[string]interface{}{}
+		if req.NamaLengkap != "" {
+			updates["nama_lengkap"] = req.NamaLengkap
+		}
+		if req.Email != "" {
+			updates["email"] = req.Email
+		}
+		if req.NoPegawai != "" {
+			updates["no_pegawai"] = req.NoPegawai
+		}
+		if req.PuskesmasId != uuid.Nil {
+			updates["puskesmas_id"] = req.PuskesmasId
+		}
+
+		if err := repoTx.UpdateAkunPetugas(ctx, petugas.ID, updates); err != nil {
+			return errormessage.NewCustomError(err, "Gagal update profile", 500)
+		}
+
+		if req.Foto != nil {
+			f, err := req.Foto.Open()
+			if err == nil {
+				ext := filepath.Ext(req.Foto.Filename)
+				filename := petugas.ID.String() + ext
+				tmpPath := utils.TempFilePath(filename)
+
+				out, err := os.Create(tmpPath)
+				if err != nil {
+					return nil
+				}
+				defer out.Close()
+
+				_, _ = io.Copy(out, f)
+				pl := payload.PhotoUploadPayload{
+					ID:     petugas.ID,
+					Folder: "betapa_antik/foto_petugas",
+					Files: []payload.PhotoFile{
+						{
+							Filename: filename,
+							Path:     tmpPath,
+						},
+					},
+				}
+				producers.PublishPetugasPhotoUpload(pl)
+			}
+		}
+		_ = configs.DeleteRedis(ctx, "profile:"+petugasId.String())
+		return nil
+	})
+}
+
+// LogoutPetugas implements [IPetugasService].
+func (p *PetugasServiceImpl) LogoutPetugas(ctx context.Context, token string) error {
+	if token == "" {
+		return errormessage.NewCustomError(errormessage.ErrBadRequest, "Token tidak diberikan", 400)
+	}
+	key := "auth:token:" + token
+	if err := configs.DeleteRedis(ctx, key); err != nil {
+		return errormessage.NewCustomError(err, "Gagal menghapus token", 500)
 	}
 	return nil
 }
