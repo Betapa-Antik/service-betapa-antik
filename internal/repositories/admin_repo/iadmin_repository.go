@@ -17,4 +17,8 @@ type IAdminRepository interface {
 	FindPetugas(ctx context.Context, limit, offset int, search string) ([]*models.User, int, error)
 	ApproveOrRejectAkunPetugas(ctx context.Context, petugasId uuid.UUID, status string) error
 	ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, status string) error
+
+	GetActiveLupaKataSandi(ctx context.Context, limit, offset int) ([]*models.LupaKataSandi, int, error)
+	GetActiveLupaKataSandiById(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error)
+	UpdateStatusLupaKataSandi(ctx context.Context, logId uuid.UUID, status string) error
 }

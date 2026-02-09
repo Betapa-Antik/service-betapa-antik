@@ -23,4 +23,7 @@ type IAdminService interface {
 	FindPetugas(ctx context.Context, req adminrequest.GetAllPetugasRequest) ([]*models.User, int, error)
 	ApproveOrRejectAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
 	ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
+
+	GetActiveLupaKataSandi(ctx context.Context, req adminrequest.GetAllLupaKataSandiRequest) ([]*models.LupaKataSandi, int, error)
+	UpdateStatusLupaKataSandi(ctx context.Context, logId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
 }

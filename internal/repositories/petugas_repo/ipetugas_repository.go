@@ -18,4 +18,9 @@ type IPetugasRepository interface {
 
 	FindAkunPetugasById(ctx context.Context, petugasId uuid.UUID) (*models.User, error)
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
+
+	FindPetugasByEmailPuskesmas(ctx context.Context, email string, puskesmasId uuid.UUID) (*models.User, error)
+	CreateLogForgotPassword(ctx context.Context, data *models.LupaKataSandi) error
+	FindLogForgotPasswordByUserID(ctx context.Context, UserId uuid.UUID) (*models.LupaKataSandi, error)
+	FindLogForgotPasswordByID(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error)
 }

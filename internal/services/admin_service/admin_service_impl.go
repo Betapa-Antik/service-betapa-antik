@@ -345,3 +345,44 @@ func (a *AdminServiceImpl) FindPetugas(ctx context.Context, req adminrequest.Get
 
 	return data, total, nil
 }
+
+// GetActiveLupaKataSandi implements [IAdminService].
+func (a *AdminServiceImpl) GetActiveLupaKataSandi(ctx context.Context, req adminrequest.GetAllLupaKataSandiRequest) ([]*models.LupaKataSandi, int, error) {
+	page := req.Page
+	limit := req.Limit
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	data, total, err := a.adminRepo.GetActiveLupaKataSandi(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, errormessage.NewCustomError(err, "Gagal mengambil daftar permintaan", 500)
+	}
+
+	if len(data) == 0 {
+		data = []*models.LupaKataSandi{}
+	}
+
+	return data, total, nil
+}
+
+// UpdateStatusLupaKataSandi implements [IAdminService].
+func (a *AdminServiceImpl) UpdateStatusLupaKataSandi(ctx context.Context, logId uuid.UUID, req adminrequest.UpdateStatusPetugas) error {
+	log, err := a.adminRepo.GetActiveLupaKataSandiById(ctx, logId)
+	if err != nil {
+		return errormessage.NewCustomError(err, "Gagal mengambil materi", 500)
+	}
+	log.Status = req.Status
+
+	if err := a.adminRepo.UpdateStatusLupaKataSandi(ctx, log.ID, req.Status); err != nil {
+		return errormessage.NewCustomError(err, "Gagal mengupdate status", 500)
+	}
+
+	return nil
+}

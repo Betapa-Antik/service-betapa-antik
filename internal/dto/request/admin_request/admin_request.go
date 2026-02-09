@@ -26,3 +26,8 @@ type GetAllPetugasRequest struct {
 	Limit  int    `query:"limit" validate:"omitempty,min=1,max=100"`
 	Search string `query:"search" validate:"omitempty"`
 }
+
+type GetAllLupaKataSandiRequest struct {
+	Page  int `query:"page" validate:"omitempty,min=1"`
+	Limit int `query:"limit" validate:"omitempty,min=1,max=100"`
+}

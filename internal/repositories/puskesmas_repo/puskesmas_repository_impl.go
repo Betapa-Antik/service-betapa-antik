@@ -67,12 +67,11 @@ func (p *PuskesmasRepositoryImpl) GetAllPuskesmas(ctx context.Context, limit int
 
 	dataQuery := baseQuery.
 		Select(`
-			puskesmas.*,
-			(
-				SELECT COUNT(1)
-				FROM "user"
-				WHERE "user".puskesmas_id = puskesmas.id
-			) as total_petugas
+			 puskesmas.*,
+        (SELECT COUNT(1)
+         FROM "user"
+         WHERE "user".puskesmas_id = puskesmas.id
+           AND "user".status = 'active') as total_petugas
 		`).
 		Order("puskesmas.created_at DESC").
 		Limit(limit).
@@ -89,11 +88,15 @@ func (p *PuskesmasRepositoryImpl) GetAllPuskesmas(ctx context.Context, limit int
 func (p *PuskesmasRepositoryImpl) GetPuskesmasById(ctx context.Context, puskesmasId uuid.UUID) (*models.PuskesmasWithTotal, error) {
 	var result models.PuskesmasWithTotal
 	err := p.db.WithContext(ctx).Model(&models.Puskesmas{}).
-		Preload("Kecamatan").Preload("Kelurahan").
+		Preload("Kecamatan").
+		Preload("Kelurahan").
 		Select(`
-			puskesmas.*,
-			(SELECT COUNT(1) from "user" WHERE "user".puskesmas_id = puskesmas.id) as total_petugas
-		`).
+        puskesmas.*,
+        (SELECT COUNT(1)
+         FROM "user"
+         WHERE "user".puskesmas_id = puskesmas.id
+           AND "user".status = 'active') as total_petugas
+    `).
 		Where("puskesmas.id = ?", puskesmasId).
 		First(&result).Error
 

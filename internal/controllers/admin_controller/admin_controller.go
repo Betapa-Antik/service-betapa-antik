@@ -8,6 +8,7 @@ import (
 	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	adminresponse "betapa-antik-service/internal/dto/response/admin_response"
 	authresponse "betapa-antik-service/internal/dto/response/auth_response"
+	logresponse "betapa-antik-service/internal/dto/response/log_response"
 	petugasresponse "betapa-antik-service/internal/dto/response/petugas_response"
 	"betapa-antik-service/internal/models"
 	adminservice "betapa-antik-service/internal/services/admin_service"
@@ -260,4 +261,72 @@ func (c *AdminController) FindPetugas(ctx echo.Context) error {
 	}
 
 	return resp.PaginatedSuccess(ctx, http.StatusOK, "Petugas berhasil diambil", items, pagination)
+}
+
+func (c *AdminController) GetActiveLupaKataSandi(ctx echo.Context) error {
+	req := new(adminrequest.GetAllLupaKataSandiRequest)
+	if err := ctx.Bind(req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+
+	data, total, err := c.adminService.GetActiveLupaKataSandi(ctx.Request().Context(), *req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	page := req.Page
+	limit := req.Limit
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	pagination := response.PaginationMeta{
+		CurrentPage: page,
+		PerPage:     limit,
+		TotalData:   int(total),
+		TotalPages:  totalPages,
+	}
+
+	items := make([]logresponse.LupaKataSandiResponse, len(data))
+	for i, v := range data {
+		items[i] = logresponse.ToLupaKataSandiResponse(*v)
+	}
+
+	return resp.PaginatedSuccess(ctx, http.StatusOK, "Permintaan Lupa kata sandi berhasil diambil", items, pagination)
+
+}
+
+func (c *AdminController) UpdateStatusLupaKataSandi(ctx echo.Context) error {
+	logId, err := uuid.Parse(ctx.Param("logId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID tidak valid", err.Error())
+	}
+
+	var req adminrequest.UpdateStatusPetugas
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return response.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	err = c.adminService.UpdateStatusLupaKataSandi(ctx.Request().Context(), logId, req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return resp.Success(ctx, http.StatusOK, "Update status berhasil", nil)
 }

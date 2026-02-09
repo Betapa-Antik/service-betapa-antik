@@ -3,6 +3,7 @@ package petugasrepo
 import (
 	"betapa-antik-service/internal/models"
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -106,4 +107,53 @@ func (p *PetugasRepositoryImpl) FindByEmail(ctx context.Context, email string) (
 	}
 
 	return &petugas, nil
+}
+
+// FindLogForgotPasswordByUserID implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) FindLogForgotPasswordByUserID(ctx context.Context, UserId uuid.UUID) (*models.LupaKataSandi, error) {
+	var log models.LupaKataSandi
+
+	err := p.db.WithContext(ctx).
+		Where("user_id = ? AND status IN ?", UserId,
+			[]string{
+				string(models.ForgotPasswordStatusPending),
+				string(models.ForgotPasswordStatusPeninjauan),
+			},
+		).
+		First(&log).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &log, nil
+}
+
+// CreateLogForgotPassword implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) CreateLogForgotPassword(ctx context.Context, data *models.LupaKataSandi) error {
+	data.ID = uuid.New()
+	return p.db.WithContext(ctx).Create(data).Error
+}
+
+// FindPetugasByEmailPuskesmas implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) FindPetugasByEmailPuskesmas(ctx context.Context, email string, puskesmasId uuid.UUID) (*models.User, error) {
+	var user models.User
+	if err := p.db.WithContext(ctx).Where("email = ? AND puskesmas_id = ?", email, puskesmasId).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// FindLogForgotPasswordByID implements [IPetugasRepository].
+func (p *PetugasRepositoryImpl) FindLogForgotPasswordByID(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error) {
+	var log models.LupaKataSandi
+	if err := p.db.WithContext(ctx).Where("id = ?", logId).First(&log).Error; err != nil {
+		return nil, err
+	}
+
+	return &log, nil
 }

@@ -118,8 +118,8 @@ func (a *AdminRepositoryImpl) FindPetugas(
 	dataQuery = dataQuery.Order(`
 		CASE
 			WHEN "user".status = 'pending' THEN 1
-			WHEN "user".status = 'approved' THEN 3
-			WHEN "user".status = 'active' THEN 2
+			WHEN "user".status = 'approved' THEN 2
+			WHEN "user".status = 'active' THEN 3
 			WHEN "user".status = 'non-active' THEN 4
 			WHEN "user".status = 'reject' THEN 5
 			ELSE 6
@@ -138,4 +138,60 @@ func (a *AdminRepositoryImpl) FindPetugas(
 	}
 
 	return petugas, int(total), nil
+}
+
+// GetActiveLupaKataSandi implements [IAdminRepository].
+func (a *AdminRepositoryImpl) GetActiveLupaKataSandi(ctx context.Context, limit int, offset int) ([]*models.LupaKataSandi, int, error) {
+	var (
+		log   []*models.LupaKataSandi
+		total int64
+	)
+
+	if limit <= 0 {
+		limit = 10
+	}
+
+	countQuery := a.db.WithContext(ctx).
+		Model(&models.LupaKataSandi{})
+
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	dataQuery := a.db.WithContext(ctx).
+		Preload("User").
+		Preload("User.Role").
+		Preload("User.Puskesmas")
+
+	dataQuery = dataQuery.Order(`
+		CASE
+			WHEN status = 'Pending' THEN 1
+			WHEN status = 'Disetujui' THEN 2
+			WHEN status = 'Ditolak' THEN 3
+			ELSE 4
+		END
+	`)
+
+	dataQuery = dataQuery.Order("created_at DESC")
+
+	if err := dataQuery.Limit(limit).Offset(offset).Find(&log).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return log, int(total), nil
+}
+
+// GetActiveLupaKataSandiById implements [IAdminRepository].
+func (a *AdminRepositoryImpl) GetActiveLupaKataSandiById(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error) {
+	var log models.LupaKataSandi
+	if err := a.db.WithContext(ctx).Where("id = ?", logId).First(&log).Error; err != nil {
+		return nil, err
+	}
+
+	return &log, nil
+}
+
+// UpdateStatusLupaKataSandi implements [IAdminRepository].
+func (a *AdminRepositoryImpl) UpdateStatusLupaKataSandi(ctx context.Context, logId uuid.UUID, status string) error {
+	return a.db.WithContext(ctx).Model(&models.LupaKataSandi{}).Where("id = ?", logId).Update("status", status).Error
 }

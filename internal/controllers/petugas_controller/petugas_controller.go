@@ -4,6 +4,7 @@ import (
 	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	petugasrequest "betapa-antik-service/internal/dto/request/petugas_request"
 	authresponse "betapa-antik-service/internal/dto/response/auth_response"
+	logresponse "betapa-antik-service/internal/dto/response/log_response"
 	petugasresponse "betapa-antik-service/internal/dto/response/petugas_response"
 	puskesmasresponse "betapa-antik-service/internal/dto/response/puskesmas_response"
 	"betapa-antik-service/internal/models"
@@ -201,4 +202,102 @@ func (p *PetugasController) LogoutPetugas(ctx echo.Context) error {
 	}
 
 	return response.Success(ctx, http.StatusOK, "Logout Berhasil", nil)
+}
+
+func (p *PetugasController) UbahKataSandiPetugas(ctx echo.Context) error {
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+
+	var req petugasrequest.UbahKataSandiRequest
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", 500)
+	}
+
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return response.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	err := p.petugasService.UbahKataSandi(ctx.Request().Context(), user.ID, req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return response.Success(ctx, http.StatusOK, "Ubah Kata Sandi berhasil", nil)
+}
+
+func (p *PetugasController) LupaKataSandi(ctx echo.Context) error {
+	var req petugasrequest.LupaKataSandiRequest
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return response.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	LogId, err := p.petugasService.LupaKataSandiRequest(ctx.Request().Context(), req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return response.Success(ctx, http.StatusOK, "Permintaan anda sedang diproses oleh admin, mohon ditunggu", LogId)
+}
+
+func (p *PetugasController) StatusVerifikasiLupaKataSandi(ctx echo.Context) error {
+	logId, err := uuid.Parse(ctx.Param("logId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID tidak valid", err.Error())
+	}
+
+	log, err := p.petugasService.StatusVerifikasiLupaKataSandi(ctx.Request().Context(), logId)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return response.Success(ctx, http.StatusOK, "Permintaan lupa kata sandi berhasil diambil", logresponse.ToLogKataSandiResponse(*log))
+
+}
+
+func (p *PetugasController) AturUlangKataSandi(ctx echo.Context) error {
+	petugasId, err := uuid.Parse(ctx.Param("petugasId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID tidak valid", err.Error())
+	}
+
+	var req petugasrequest.AturUlangKataSandiRequest
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", 500)
+	}
+
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return response.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+
+	err = p.petugasService.AturUlangKataSandi(ctx.Request().Context(), petugasId, req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	return response.Success(ctx, http.StatusOK, "Ubah Kata Sandi berhasil", nil)
 }

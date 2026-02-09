@@ -23,3 +23,19 @@ type UpdatePetugasRequest struct {
 	Email       string                `form:"email" validate:"omitempty,email"`
 	PuskesmasId uuid.UUID             `form:"puskesmas_id" validate:"omitempty"`
 }
+
+type UbahKataSandiRequest struct {
+	KataSandiLama           string `json:"kata_sandi_lama" validate:"required"`
+	KataSandiBaru           string `json:"kata_sandi_baru" validate:"required,password"`
+	KonfirmasiKataSandiBaru string `json:"konfirmasi_kata_sandi_baru" validate:"required,eqfield=KataSandiBaru"`
+}
+
+type LupaKataSandiRequest struct {
+	Email       string    `json:"email" validate:"required"`
+	PuskesmasID uuid.UUID `json:"puskesmas_id" validate:"required"`
+}
+
+type AturUlangKataSandiRequest struct {
+	KataSandiBaru           string `json:"kata_sandi_baru" validate:"required,password"`
+	KonfirmasiKataSandiBaru string `json:"konfirmasi_kata_sandi_baru" validate:"required,eqfield=KataSandiBaru"`
+}

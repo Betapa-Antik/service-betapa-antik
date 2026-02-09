@@ -32,4 +32,7 @@ func AdminRoutes(e *echo.Group, db *gorm.DB) {
 	am.GET("/petugas", ctrl.FindPetugas)
 	am.PUT("/approve-or-reject-petugas/:petugasId", ctrl.ApproveOrRejecAkunPetugas)
 	am.PUT("/active-or-nonactive-petugas/:petugasId", ctrl.ActiveOrNonActiveAkunPetugas)
+
+	am.GET("/petugas/lupa-kata-sandi", ctrl.GetActiveLupaKataSandi)
+	am.PUT("/petugas/lupa-kata-sandi/:logId/update-status", ctrl.UpdateStatusLupaKataSandi)
 }

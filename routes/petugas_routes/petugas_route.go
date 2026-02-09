@@ -28,4 +28,10 @@ func PetugasRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	pm.GET("/profile", petugasCtrl.GetProfilePetugas)
 	pm.PUT("/profile/update", petugasCtrl.UpdateProfilePetugas)
 	pm.POST("/logout", petugasCtrl.LogoutPetugas)
+	pm.PUT("/ubah-kata-sandi", petugasCtrl.UbahKataSandiPetugas)
+
+	e.POST("/lupa-kata-sandi-request", petugasCtrl.LupaKataSandi)
+	e.GET("/status-lupa-kata-sandi/:logId", petugasCtrl.StatusVerifikasiLupaKataSandi)
+	e.PUT("/atur-ulang-kata-sandi/:petugasId", petugasCtrl.AturUlangKataSandi)
+
 }

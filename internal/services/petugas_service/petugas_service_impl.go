@@ -267,3 +267,123 @@ func (p *PetugasServiceImpl) LogoutPetugas(ctx context.Context, token string) er
 	}
 	return nil
 }
+
+// UbahKataSandi implements [IPetugasService].
+func (p *PetugasServiceImpl) UbahKataSandi(ctx context.Context, petugasId uuid.UUID, req petugasrequest.UbahKataSandiRequest) error {
+	return utils.RunInTransaction(p.petugasRepo.DB(), func(tx *gorm.DB) error {
+		repoTx := p.petugasRepo.WithTx(tx)
+
+		petugas, err := repoTx.FindAkunPetugasById(ctx, petugasId)
+		if err != nil {
+			return errormessage.NewCustomError(err, "Gagal mengambil petugas", 500)
+		}
+
+		if err := utils.CheckPassword(petugas.KataSandi, req.KataSandiLama); err != nil {
+			return errormessage.NewCustomError(errormessage.ErrBadRequest, "Kata sandi lama tidak sesuai", 400)
+		}
+
+		hashed, err := utils.HashPassword(req.KataSandiBaru)
+		if err != nil {
+			return errormessage.NewCustomError(err, "Gagal generate kata sandi baru", 500)
+		}
+
+		updates := map[string]interface{}{}
+		if req.KataSandiBaru != "" {
+			updates["kata_sandi"] = hashed
+		}
+
+		if err := repoTx.UpdateAkunPetugas(ctx, petugas.ID, updates); err != nil {
+			return errormessage.NewCustomError(err, "Gagal ubah kata sandi", 500)
+		}
+
+		_ = configs.DeleteRedis(ctx, "profile:"+petugasId.String())
+		return nil
+	})
+}
+
+// LupaKataSandiRequest implements [IPetugasService].
+func (p *PetugasServiceImpl) LupaKataSandiRequest(ctx context.Context, req petugasrequest.LupaKataSandiRequest) (string, error) {
+	petugas, err := p.petugasRepo.FindPetugasByEmailPuskesmas(ctx, req.Email, req.PuskesmasID)
+	if err != nil {
+		return "", errormessage.NewCustomError(err, "Gagal mengambil data petugas", 500)
+	}
+
+	if petugas == nil {
+		return "", errormessage.NewCustomError(err, "Akun petugas tidak ditemukan", 500)
+	}
+
+	if petugas.Status != models.UserStatusActive {
+		return "", errormessage.NewCustomError(err, "Akun anda belum diaktifkan", 500)
+	}
+
+	// ✅ CEK REQUEST YANG MASIH AKTIF
+	activeReq, err := p.petugasRepo.FindLogForgotPasswordByUserID(ctx, petugas.ID)
+	if err != nil {
+		return "", errormessage.NewCustomError(err, "Gagal memeriksa permintaan sebelumnya", 500)
+	}
+
+	// ✅ Kalau masih ada request aktif → return ID lama (SUCCESS)
+	if activeReq != nil {
+		return activeReq.ID.String(), nil
+	}
+
+	logForgotPassword := &models.LupaKataSandi{
+		UserID: petugas.ID,
+		Status: models.ForgotPasswordStatusPending,
+	}
+
+	err = utils.RunInTransaction(p.petugasRepo.DB(), func(tx *gorm.DB) error {
+		repoTx := p.petugasRepo.WithTx(tx)
+
+		if err := repoTx.CreateLogForgotPassword(ctx, logForgotPassword); err != nil {
+			return errormessage.NewCustomError(err, "Gagal melakukan permintaan lupa kata sandi", 500)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errormessage.NewCustomError(err, "Gagal melakukan permintaan lupa kata sandi", 500)
+	}
+
+	return logForgotPassword.ID.String(), nil
+}
+
+// StatusVerifikasiLupaKataSandi implements [IPetugasService].
+func (p *PetugasServiceImpl) StatusVerifikasiLupaKataSandi(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error) {
+	logLupaKataSandi, err := p.petugasRepo.FindLogForgotPasswordByID(ctx, logId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errormessage.NewCustomError(err, "Permintaan tidak ditemukan", 404)
+		}
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil permintaan lupa kata sanid", 500)
+	}
+
+	return logLupaKataSandi, nil
+}
+
+// AturUlangKataSandi implements [IPetugasService].
+func (p *PetugasServiceImpl) AturUlangKataSandi(ctx context.Context, petugasId uuid.UUID, req petugasrequest.AturUlangKataSandiRequest) error {
+	return utils.RunInTransaction(p.petugasRepo.DB(), func(tx *gorm.DB) error {
+		repoTx := p.petugasRepo.WithTx(tx)
+
+		petugas, err := repoTx.FindAkunPetugasById(ctx, petugasId)
+		if err != nil {
+			return errormessage.NewCustomError(err, "Gagal mengambil petugas", 500)
+		}
+
+		hashed, err := utils.HashPassword(req.KataSandiBaru)
+		if err != nil {
+			return errormessage.NewCustomError(err, "Gagal generate kata sandi baru", 500)
+		}
+
+		updates := map[string]interface{}{}
+		if req.KataSandiBaru != "" {
+			updates["kata_sandi"] = hashed
+		}
+		if err := repoTx.UpdateAkunPetugas(ctx, petugas.ID, updates); err != nil {
+			return errormessage.NewCustomError(err, "Gagal ubah kata sandi", 500)
+		}
+
+		_ = configs.DeleteRedis(ctx, "profile:"+petugasId.String())
+		return nil
+	})
+}

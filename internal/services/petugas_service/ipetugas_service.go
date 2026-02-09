@@ -16,4 +16,9 @@ type IPetugasService interface {
 	GetProfilePetugas(ctx context.Context, userID uuid.UUID) (*models.User, error)
 	UpdateProfilePetugas(ctx context.Context, petugasId uuid.UUID, req petugasrequest.UpdatePetugasRequest) error
 	LogoutPetugas(ctx context.Context, token string) error
+
+	UbahKataSandi(ctx context.Context, petugasId uuid.UUID, req petugasrequest.UbahKataSandiRequest) error
+	LupaKataSandiRequest(ctx context.Context, req petugasrequest.LupaKataSandiRequest) (string, error)
+	StatusVerifikasiLupaKataSandi(ctx context.Context, logId uuid.UUID) (*models.LupaKataSandi, error)
+	AturUlangKataSandi(ctx context.Context, petugasId uuid.UUID, req petugasrequest.AturUlangKataSandiRequest) error
 }
