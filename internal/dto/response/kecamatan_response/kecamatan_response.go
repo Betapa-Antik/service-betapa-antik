@@ -30,3 +30,17 @@ func ToKecamatanResponse(kecamatan models.KecamatanWithTotal) KecamatanResponse 
 		UpdatedAt:      utils.FormatDate(kecamatan.UpdatedAt),
 	}
 }
+
+type KecamatanSelectedResponse struct {
+	ID            uuid.UUID `json:"id"`
+	NamaKecamatan string    `json:"nama_kecamatan"`
+	KodeWilayah   string    `json:"kode_wilayah"`
+}
+
+func ToKecamatanSelectedResponse(kecamatan models.SelectKecamatan) KecamatanSelectedResponse {
+	return KecamatanSelectedResponse{
+		ID:            kecamatan.ID,
+		NamaKecamatan: kecamatan.NamaKecamatan,
+		KodeWilayah:   kecamatan.KodeWilayah,
+	}
+}

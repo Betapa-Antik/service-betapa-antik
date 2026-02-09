@@ -21,3 +21,9 @@ type Kelurahan struct {
 func (Kelurahan) TableName() string {
 	return "kelurahan"
 }
+
+type SelectKelurahan struct {
+	ID            uuid.UUID `json:"id"`
+	NamaKelurahan string    `json:"nama_kelurahan"`
+	KodeKelurahan string    `json:"kode_Kelurahan"`
+}

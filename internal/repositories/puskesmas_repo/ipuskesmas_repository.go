@@ -16,4 +16,7 @@ type IPuskesmasRepository interface {
 	GetPuskesmasById(ctx context.Context, puskesmasId uuid.UUID) (*models.PuskesmasWithTotal, error)
 	UpdatePuskesmas(ctx context.Context, puskesmasId uuid.UUID, updates map[string]interface{}) error
 	DeletePuskesmas(ctx context.Context, puskesmasId uuid.UUID) error
+
+	GetSelectKecamatan(ctx context.Context, search string) ([]models.SelectKecamatan, error)
+	GetSelectKelurahan(ctx context.Context, kecamatanId uuid.UUID, search string) ([]models.SelectKelurahan, error)
 }

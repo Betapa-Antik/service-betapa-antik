@@ -24,4 +24,7 @@ func PuskesmasRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	pr.GET("/:puskesmasId", puskesmasCtrl.GetPuskesmasById)
 	pr.PUT("/:puskesmasId/edit", puskesmasCtrl.UpdatePuskesmas)
 	pr.DELETE("/:puskesmasId/delete", puskesmasCtrl.DeletePuskesmas)
+
+	pr.GET("/select-kecamatan", puskesmasCtrl.GetSelectKecamatan)
+	pr.GET("/select-kelurahan/:kecamatanId", puskesmasCtrl.GetSelectKelurahan)
 }

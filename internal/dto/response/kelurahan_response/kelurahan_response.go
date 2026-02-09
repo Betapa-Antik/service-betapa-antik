@@ -32,3 +32,17 @@ func ToKelurahanResponse(k models.Kelurahan, withKecamatan bool) KelurahanRespon
 
 	return res
 }
+
+type KelurahanSelectedResponse struct {
+	ID            uuid.UUID `json:"id"`
+	NamaKelurahan string    `json:"nama_kelurahan"`
+	KodeKelurahan string    `json:"kode_kelurahan"`
+}
+
+func ToKelurahanSelectedRespons(kelurahan models.SelectKelurahan) KelurahanSelectedResponse {
+	return KelurahanSelectedResponse{
+		ID:            kelurahan.ID,
+		NamaKelurahan: kelurahan.NamaKelurahan,
+		KodeKelurahan: kelurahan.KodeKelurahan,
+	}
+}

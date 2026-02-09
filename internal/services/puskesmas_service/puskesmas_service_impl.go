@@ -274,3 +274,31 @@ func (p *PuskesmasServiceImpl) DeletePuskesmas(ctx context.Context, puskesmasId 
 		return nil
 	})
 }
+
+// GetSelectKecamatan implements [IPuskesmasService].
+func (p *PuskesmasServiceImpl) GetSelectKecamatan(ctx context.Context, search string) ([]models.SelectKecamatan, error) {
+	data, err := p.puskesmasRepo.GetSelectKecamatan(ctx, search)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil data kecamatan", 500)
+	}
+
+	if len(data) == 0 {
+		data = []models.SelectKecamatan{}
+	}
+
+	return data, nil
+}
+
+// GetSelectKelurahan implements [IPuskesmasService].
+func (p *PuskesmasServiceImpl) GetSelectKelurahan(ctx context.Context, kecamatanId uuid.UUID, search string) ([]models.SelectKelurahan, error) {
+	data, err := p.puskesmasRepo.GetSelectKelurahan(ctx, kecamatanId, search)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil data kelurahan", 500)
+	}
+
+	if len(data) == 0 {
+		data = []models.SelectKelurahan{}
+	}
+
+	return data, nil
+}

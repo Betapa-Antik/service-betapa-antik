@@ -24,3 +24,9 @@ type KecamatanWithTotal struct {
 	TotalKelurahan int `json:"total_kelurahan"`
 	TotalPuskesmas int `json:"total_puskesmas"`
 }
+
+type SelectKecamatan struct {
+	ID            uuid.UUID `json:"id"`
+	NamaKecamatan string    `json:"nama_kecamatan"`
+	KodeWilayah   string    `json:"kode_wilayah"`
+}

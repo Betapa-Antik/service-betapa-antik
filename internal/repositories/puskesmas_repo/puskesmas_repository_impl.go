@@ -108,3 +108,52 @@ func (p *PuskesmasRepositoryImpl) GetPuskesmasById(ctx context.Context, puskesma
 func (p *PuskesmasRepositoryImpl) DeletePuskesmas(ctx context.Context, puskesmasId uuid.UUID) error {
 	return p.db.WithContext(ctx).Where("id = ?", puskesmasId).Delete(&models.Puskesmas{}).Error
 }
+
+// GetSelectKecamatan implements [IPuskesmasRepository].
+func (p *PuskesmasRepositoryImpl) GetSelectKecamatan(ctx context.Context, search string) ([]models.SelectKecamatan, error) {
+	var result []models.SelectKecamatan
+
+	query := p.db.WithContext(ctx).
+		Table("kecamatan").
+		Select(`
+			kecamatan.id,
+			kecamatan.nama_kecamatan,
+			kecamatan.kode_wilayah
+		`).Order("kecamatan.nama_kecamatan ASC")
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("kecamatan.nama_kecamatan ILIKE ?", searchPattern)
+	}
+
+	if err := query.Find(&result).Error; err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetSelectKelurahan implements [IPuskesmasRepository].
+func (p *PuskesmasRepositoryImpl) GetSelectKelurahan(ctx context.Context, kecamatanId uuid.UUID, search string) ([]models.SelectKelurahan, error) {
+	var result []models.SelectKelurahan
+
+	query := p.db.WithContext(ctx).
+		Table("kelurahan").
+		Select(`
+		kelurahan.id,
+		kelurahan.nama_kelurahan,
+		kelurahan.kode_kelurahan
+	`).
+		Where("kelurahan.kecamatan_id = ?", kecamatanId).
+		Order("kelurahan.nama_kelurahan ASC")
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("kelurahan.nama_kelurahan ILIKE ?", searchPattern)
+	}
+
+	if err := query.Find(&result).Error; err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}

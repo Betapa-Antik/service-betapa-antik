@@ -2,6 +2,8 @@ package puskesmascontroller
 
 import (
 	puskesmasrequest "betapa-antik-service/internal/dto/request/puskesmas_request"
+	kecamatanresponse "betapa-antik-service/internal/dto/response/kecamatan_response"
+	kelurahanresponse "betapa-antik-service/internal/dto/response/kelurahan_response"
 	puskesmasresponse "betapa-antik-service/internal/dto/response/puskesmas_response"
 	puskesmasservice "betapa-antik-service/internal/services/puskesmas_service"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
@@ -211,4 +213,46 @@ func (p *PuskesmasController) DeletePuskesmas(ctx echo.Context) error {
 	}
 
 	return response.Success(ctx, http.StatusOK, "Berhasil menghapus puskesmas", nil)
+}
+
+func (p *PuskesmasController) GetSelectKecamatan(ctx echo.Context) error {
+	search := ctx.QueryParam("search")
+
+	data, err := p.puskesmasService.GetSelectKecamatan(ctx.Request().Context(), search)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	items := make([]kecamatanresponse.KecamatanSelectedResponse, len(data))
+	for i, v := range data {
+		items[i] = kecamatanresponse.ToKecamatanSelectedResponse(v)
+	}
+
+	return response.Success(ctx, http.StatusOK, "Kecamatan berhasil diambil", items)
+}
+
+func (p *PuskesmasController) GetSelectKelurahan(ctx echo.Context) error {
+	search := ctx.QueryParam("search")
+	kecamatanId, err := uuid.Parse(ctx.Param("kecamatanId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID Tidak Valid", err.Error())
+	}
+
+	data, err := p.puskesmasService.GetSelectKelurahan(ctx.Request().Context(), kecamatanId, search)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	items := make([]kelurahanresponse.KelurahanSelectedResponse, len(data))
+	for i, v := range data {
+		items[i] = kelurahanresponse.ToKelurahanSelectedRespons(v)
+	}
+
+	return response.Success(ctx, http.StatusOK, "Kelurahan berhasil diambil", items)
 }
