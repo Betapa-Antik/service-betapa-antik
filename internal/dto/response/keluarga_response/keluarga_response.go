@@ -32,3 +32,25 @@ func ToKeluargaResponse(keluarga models.Keluarga) KeluargaResponse {
 		UpdatedAt:          utils.FormatDate(keluarga.UpdatedAt),
 	}
 }
+
+type KeluargaSelectedResponse struct {
+	ID                 uuid.UUID `json:"id"`
+	NamaKepalaKeluarga string    `json:"nama_kepala_keluarga"`
+	Kecamatan          string    `json:"kecamatan"`
+	Kelurahan          string    `json:"kelurahan"`
+	RT                 string    `json:"rt"`
+	RW                 string    `json:"rw"`
+	Alamat             string    `json:"alamat"`
+}
+
+func ToKeluargaSelectedResponse(keluarga models.SelectKeluarga) KeluargaSelectedResponse {
+	return KeluargaSelectedResponse{
+		ID:                 keluarga.ID,
+		NamaKepalaKeluarga: keluarga.NamaKepalaKeluarga,
+		Kecamatan:          keluarga.Kecamatan,
+		Kelurahan:          keluarga.Kelurahan,
+		RT:                 keluarga.RT,
+		RW:                 keluarga.RW,
+		Alamat:             keluarga.Alamat,
+	}
+}

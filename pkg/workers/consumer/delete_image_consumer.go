@@ -73,7 +73,7 @@ func DeleteImageConsumer(
 	}()
 }
 
-func handleDeleteProcess(ctx context.Context, msg amqp.Delivery, cloudinary datasource.CloudinaryService) {
+func handleDeleteProcess(_ context.Context, msg amqp.Delivery, cloudinary datasource.CloudinaryService) {
 	// Gunakan defer untuk memastikan Nack dikirim jika terjadi panic
 	defer func() {
 		if r := recover(); r != nil {

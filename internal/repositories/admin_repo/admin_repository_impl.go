@@ -49,7 +49,7 @@ func (a *AdminRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID) (*mode
 
 // ActiveOrNonActiveAkunPetugas implements [IAdminRepository].
 func (a *AdminRepositoryImpl) ActiveOrNonActiveAkunPetugas(ctx context.Context, petugasId uuid.UUID, status string) error {
-	return a.db.WithContext(ctx).Model(&models.User{}).Where("id = ? AND status = ?", petugasId, models.UserStatusApproved).Update("status", status).Error
+	return a.db.WithContext(ctx).Model(&models.User{}).Where("id = ? AND status in (?, ?)", petugasId, models.UserStatusApproved, models.UserStatusReject).Update("status", status).Error
 }
 
 // ApproveOrRejectAkunPetugas implements [IAdminRepository].

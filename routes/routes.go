@@ -10,6 +10,7 @@ import (
 	petugasroutes "betapa-antik-service/routes/petugas_routes"
 	puskesmasroutes "betapa-antik-service/routes/puskesmas_routes"
 	roleroutes "betapa-antik-service/routes/role_routes"
+	surveyroutes "betapa-antik-service/routes/survey_routes"
 	videoroutes "betapa-antik-service/routes/video_routes"
 
 	"github.com/labstack/echo/v4"
@@ -37,4 +38,6 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasource.Clo
 	petugasroutes.PetugasRoutes(v1.Group("/petugas"), db, rdb)
 	//register keluarga routes
 	keluargaroutes.KeluargaRoutes(v1.Group("/keluarga"), db, rdb)
+	//register survey routes
+	surveyroutes.SurveyRoutes(v1.Group("/survey"), db, rdb)
 }

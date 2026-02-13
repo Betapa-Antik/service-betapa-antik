@@ -1,0 +1,132 @@
+package consumer
+
+import (
+	"betapa-antik-service/configs"
+	datasource "betapa-antik-service/internal/dataSource"
+	"betapa-antik-service/internal/models"
+	surveyrepo "betapa-antik-service/internal/repositories/survey_repo"
+	queueConst "betapa-antik-service/pkg/constant/rabbitMQ"
+	"betapa-antik-service/pkg/utils"
+	"betapa-antik-service/pkg/workers/payload"
+	"bytes"
+	"context"
+	"encoding/json"
+	"log"
+	"os"
+	"time"
+
+	"github.com/streadway/amqp"
+	"gorm.io/gorm"
+)
+
+func StartSurveyPhotoConsumer(ctx context.Context, db *gorm.DB, cloud datasource.CloudinaryService) error {
+	surveyRepo := surveyrepo.NewSurveyRepositoryImpl(db)
+
+	go func() {
+		for {
+			conn := configs.GetRabbitConn()
+			if conn == nil || conn.IsClosed() {
+				log.Println("[RabbitMQ] Waiting for connection...")
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			ch, err := conn.Channel()
+			if err != nil {
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			// PENTING: Batasi jumlah pesan yang diproses (1 per worker) agar tidak stuck
+			_ = ch.Qos(2, 0, false)
+
+			msgs, err := ch.Consume(
+				queueConst.SurveyUploadQueue,
+				"",    // consumer
+				false, // auto-ack diganti ke FALSE agar aman
+				false, // exclusive
+				false, // no-local
+				false, // no-wait
+				nil,   // args
+			)
+			if err != nil {
+				ch.Close()
+				continue
+			}
+
+			log.Println("[RabbitMQ] Survey Consumer is running...")
+
+			for d := range msgs {
+				// Proses satu per satu secara sekuensial atau gunakan worker pool terbatas
+				// Menghapus 'go func()' di dalam loop file untuk menghindari race condition
+				handleSurveyUpload(ctx, d, db, surveyRepo, cloud)
+			}
+
+			log.Println("[RabbitMQ] Channel closed, reconnecting...")
+			ch.Close()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	return nil
+}
+
+func handleSurveyUpload(ctx context.Context, d amqp.Delivery, db *gorm.DB, surveyRepo surveyrepo.ISurveyRepository, cloud datasource.CloudinaryService) {
+	var p payload.PhotoUploadPayload
+	if err := json.Unmarshal(d.Body, &p); err != nil {
+		log.Printf("Invalid payload: %v", err)
+		_ = d.Ack(false)
+		return
+	}
+
+	successCount := 0
+	for _, file := range p.Files {
+		// 1. Read File
+		data, err := os.ReadFile(file.Path)
+		if err != nil {
+			log.Printf("Failed read file %s: %v", file.Path, err)
+			continue
+		}
+
+		// 2. Upload to Cloudinary
+		res, err := cloud.UploadFromReader(ctx, bytes.NewReader(data), p.Folder, file.Filename)
+		if err != nil {
+			log.Printf("Cloudinary error: %v", err)
+			continue
+		}
+
+		// 3. DB Transaction
+		err = utils.RunInTransaction(db, func(tx *gorm.DB) error {
+			repo := surveyRepo.WithTx(tx)
+			gambar := &models.Gambar{Path: res.URL}
+			if err := repo.CreateGambar(ctx, gambar); err != nil {
+				return err
+			}
+			return repo.CreatePivotSurveyGambar(ctx, &models.SurveyGambar{
+				SurveyID: p.ID,
+				GambarID: gambar.ID,
+			})
+		})
+
+		if err == nil {
+			_ = os.Remove(file.Path)
+			successCount++
+		}
+	}
+
+	survey, err := surveyRepo.GetSurveyByID(ctx, p.ID)
+	if err != nil {
+		log.Printf("Failed to get survey after upload: %v", err)
+		_ = d.Ack(false)
+		return
+	}
+
+	// 4. Invalidate Cache setelah semua file selesai (Reusable Function)
+	if successCount > 0 {
+		_ = configs.DeleteRedis(ctx, "survey:petugasId:"+survey.PetugasID.String()+":all:*")
+		_ = configs.DeleteRedis(ctx, "survey:"+p.ID.String())
+	}
+
+	// 5. Akhiri dengan Ack
+	_ = d.Ack(false)
+}

@@ -21,6 +21,7 @@ func InitDB() *gorm.DB {
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{
 		PrepareStmt: false,
+		// Logger:      logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		log.Fatalf("Gagal koneksi ke database: %v", err)

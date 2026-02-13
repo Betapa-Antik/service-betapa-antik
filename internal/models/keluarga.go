@@ -23,3 +23,13 @@ type Keluarga struct {
 func (Keluarga) TableName() string {
 	return "keluarga"
 }
+
+type SelectKeluarga struct {
+	ID                 uuid.UUID `json:"id"`
+	NamaKepalaKeluarga string    `json:"nama_kepala_keluarga"`
+	Kecamatan          string    `json:"kecamatan"`
+	Kelurahan          string    `json:"kelurahan"`
+	RT                 string    `json:"rt"`
+	RW                 string    `json:"rw"`
+	Alamat             string    `json:"alamat"`
+}

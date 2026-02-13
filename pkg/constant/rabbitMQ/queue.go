@@ -7,4 +7,5 @@ const (
 	KecamatanUploadQueue   = "kecamatan.photo.upload"
 	PuskesmasUploadQueue   = "puskesmas.photo.upload"
 	PetugasUploadQueue     = "petugas.photo.upload"
+	SurveyUploadQueue      = "survey.photo.upload"
 )
