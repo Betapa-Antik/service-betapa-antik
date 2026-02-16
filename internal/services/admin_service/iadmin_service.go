@@ -26,4 +26,19 @@ type IAdminService interface {
 
 	GetActiveLupaKataSandi(ctx context.Context, req adminrequest.GetAllLupaKataSandiRequest) ([]*models.LupaKataSandi, int, error)
 	UpdateStatusLupaKataSandi(ctx context.Context, logId uuid.UUID, req adminrequest.UpdateStatusPetugas) error
+
+	GetAllLaporan(ctx context.Context, req adminrequest.GetAllLaporanRequest) ([]*models.Laporan, int, error)
+	GetLaporanByID(ctx context.Context, laporanId uuid.UUID) (*models.Laporan, error)
+	UpdateStatusLaporan(ctx context.Context, laporanId uuid.UUID, req adminrequest.UpdateStatusLaporan) error
+
+	GetDashboardAdmin(ctx context.Context) (*models.TotalDataDashboardAdmin, error)
+	GetSelectKecamatan(ctx context.Context) ([]models.SelectKecamatan, error)
+	GetStatistikDFChart(
+		ctx context.Context,
+		kecamatanId uuid.UUID,
+		startDate string,
+		endDate string,
+	) ([]models.StatistikDFChart, error)
+	GetLatestMateri(ctx context.Context) ([]*models.Materi, error)
+	GetLatestVideo(ctx context.Context) ([]*models.Video, error)
 }

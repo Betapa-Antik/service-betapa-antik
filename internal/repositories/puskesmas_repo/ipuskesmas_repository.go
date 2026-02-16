@@ -19,4 +19,6 @@ type IPuskesmasRepository interface {
 
 	GetSelectKecamatan(ctx context.Context, search string) ([]models.SelectKecamatan, error)
 	GetSelectKelurahan(ctx context.Context, kecamatanId uuid.UUID, search string) ([]models.SelectKelurahan, error)
+
+	GetAllPetugasByPuskesmasId(ctx context.Context, puskesmasId uuid.UUID, search string) ([]*models.PetugasWithTotalSurvey, error)
 }

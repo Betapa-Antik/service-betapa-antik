@@ -25,6 +25,8 @@ type Survey struct {
 	SurveyGambar   []SurveyGambar        `gorm:"foreignKey:SurveyID;constraint:OnDelete:CASCADE;" json:"survey_gambar,omitempty"`
 	FollowUpNyamuk *SurveyFollowUpNyamuk `gorm:"foreignKey:SurveyID;constraint:OnDelete:CASCADE;" json:"survey_followup_nyamuk,omitempty"`
 	FollowUpJentik *SurveyFollowUpJentik `gorm:"foreignKey:SurveyID;constraint:OnDelete:CASCADE;" json:"survey_followup_jentik,omitempty"`
+
+	Status string `gorm:"-" json:"status"`
 }
 
 func (Survey) TableName() string {

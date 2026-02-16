@@ -35,4 +35,14 @@ func AdminRoutes(e *echo.Group, db *gorm.DB) {
 
 	am.GET("/petugas/lupa-kata-sandi", ctrl.GetActiveLupaKataSandi)
 	am.PUT("/petugas/lupa-kata-sandi/:logId/update-status", ctrl.UpdateStatusLupaKataSandi)
+
+	am.GET("/laporan", ctrl.GetAllLaporan)
+	am.GET("/laporan/:laporanId", ctrl.GetLaporanByID)
+	am.PUT("/laporan/:laporanId/update-status", ctrl.UpdateStatusLaporan)
+
+	am.GET("/dashboard", ctrl.GetDashboardAdmin)
+	am.GET("/select-kecamatan", ctrl.GetSelectKecamatan)
+	am.GET("/statistik-df-chart", ctrl.GetStatistikDFChart)
+	am.GET("/materi/latest", ctrl.GetLatestMateri)
+	am.GET("/video/latest", ctrl.GetLatestVideo)
 }

@@ -33,3 +33,17 @@ type User struct {
 func (User) TableName() string {
 	return "user"
 }
+
+type PetugasWithTotalSurvey struct {
+	ID          uuid.UUID `json:"id"`
+	Foto        string    `json:"foto"`
+	NamaLengkap string    `json:"nama_lengkap"`
+	NoPegawai   string    `json:"no_pegawai"`
+	Email       string    `json:"email"`
+	Puskesmas   string    `json:"puskesmas" gorm:"column:puskesmas"`
+	Role        string    `json:"jabatan" gorm:"column:jabatan"`
+	Status      string    `json:"status"`
+	TotalSurvey int64     `json:"total_survey"`
+	CreatedAt   string    `json:"created_at"`
+	UpdatedAt   string    `json:"updated_at"`
+}

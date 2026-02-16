@@ -95,6 +95,7 @@ type UpdateSurveyRequest struct {
 	// ============================
 	GambarBaru     []*multipart.FileHeader `form:"gambar_baru" validate:"omitempty,dive"`
 	HapusGambarIDs []uuid.UUID             `form:"hapus_gambar_ids" validate:"omitempty"`
+	HapusItemIDs   []uuid.UUID             `form:"hapus_item_ids" validate:"omitempty"`
 }
 
 type UpdateSurveyItemRequest struct {

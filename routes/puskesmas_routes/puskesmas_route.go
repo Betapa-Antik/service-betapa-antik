@@ -27,4 +27,5 @@ func PuskesmasRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 
 	pr.GET("/select-kecamatan", puskesmasCtrl.GetSelectKecamatan)
 	pr.GET("/select-kelurahan/:kecamatanId", puskesmasCtrl.GetSelectKelurahan)
+	pr.GET("/petugas/:puskesmasId", puskesmasCtrl.GetPetugasByPuskesmasId)
 }

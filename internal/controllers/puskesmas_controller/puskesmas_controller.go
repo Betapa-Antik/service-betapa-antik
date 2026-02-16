@@ -256,3 +256,25 @@ func (p *PuskesmasController) GetSelectKelurahan(ctx echo.Context) error {
 
 	return response.Success(ctx, http.StatusOK, "Kelurahan berhasil diambil", items)
 }
+
+func (p *PuskesmasController) GetPetugasByPuskesmasId(ctx echo.Context) error {
+	search := ctx.QueryParam("search")
+	puskesmasId, err := uuid.Parse(ctx.Param("puskesmasId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID Tidak Valid", err.Error())
+	}
+
+	data, err := p.puskesmasService.GetPetugasByPuskesmasId(ctx.Request().Context(), puskesmasId, search)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	items := make([]puskesmasresponse.PetugasPuskesmasWithTotalResponse, len(data))
+	for i, v := range data {
+		items[i] = puskesmasresponse.ToPetugasPuskesmasWithTotalResponse(*v)
+	}
+
+	return response.Success(ctx, http.StatusOK, "Petugas berhasil diambil", items)
+}

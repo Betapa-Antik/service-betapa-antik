@@ -26,5 +26,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.SurveyFollowUpNyamuk{},
 		&models.SurveyFollowUpJentik{},
 		&models.SurveyGambar{},
+		&models.Laporan{},
+		&models.LaporanGambar{},
 	)
 }

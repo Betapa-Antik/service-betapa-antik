@@ -386,3 +386,99 @@ func (a *AdminServiceImpl) UpdateStatusLupaKataSandi(ctx context.Context, logId 
 
 	return nil
 }
+
+// GetAllLaporan implements [IAdminService].
+func (a *AdminServiceImpl) GetAllLaporan(ctx context.Context, req adminrequest.GetAllLaporanRequest) ([]*models.Laporan, int, error) {
+	data, total, err := a.adminRepo.GetAllLaporan(ctx, req.Limit, req.Page, req.Search)
+	if err != nil {
+		return nil, 0, errormessage.NewCustomError(err, "Gagal mengambil daftar laporan", 500)
+	}
+	if len(data) == 0 {
+		data = []*models.Laporan{}
+	}
+	return data, total, nil
+}
+
+// GetLaporanByID implements [IAdminService].
+func (a *AdminServiceImpl) GetLaporanByID(ctx context.Context, laporanId uuid.UUID) (*models.Laporan, error) {
+	data, err := a.adminRepo.GetLaporanByID(ctx, laporanId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errormessage.NewCustomError(errormessage.ErrNotFound, "Laporan tidak ditemukan", 404)
+		}
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil laporan", 500)
+	}
+	return data, nil
+}
+
+// UpdateStatusLaporan implements [IAdminService].
+func (a *AdminServiceImpl) UpdateStatusLaporan(ctx context.Context, laporanId uuid.UUID, req adminrequest.UpdateStatusLaporan) error {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return errormessage.NewCustomError(err, "Gagal load timezone", 500)
+	}
+
+	now := time.Now().In(loc)
+	updates := make(map[string]interface{})
+	if req.Status != "" {
+		updates["status"] = req.Status
+		updates["decision_at"] = now
+	}
+
+	if req.CatatanAdmin != nil {
+		updates["catatan_admin"] = *req.CatatanAdmin
+	}
+
+	if err := a.adminRepo.UpdateStatusLaporan(ctx, laporanId, updates); err != nil {
+		return errormessage.NewCustomError(err, "Gagal mengupdate status laporan", 500)
+	}
+	return nil
+}
+
+// GetDashboardAdmin implements [IAdminService].
+func (a *AdminServiceImpl) GetDashboardAdmin(ctx context.Context) (*models.TotalDataDashboardAdmin, error) {
+	return a.adminRepo.GetDashboardAdmin(ctx)
+}
+
+// GetStatistikDFChart implements [IAdminService].
+func (a *AdminServiceImpl) GetStatistikDFChart(ctx context.Context, kecamatanId uuid.UUID, startDate string, endDate string) ([]models.StatistikDFChart, error) {
+	return a.adminRepo.GetStatistikDFChart(ctx, kecamatanId, startDate, endDate)
+}
+
+// GetSelectKecamatan implements [IAdminService].
+func (a *AdminServiceImpl) GetSelectKecamatan(ctx context.Context) ([]models.SelectKecamatan, error) {
+	data, err := a.adminRepo.GetSelectKecamatan(ctx)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil data kecamatan", 500)
+	}
+
+	if len(data) == 0 {
+		data = []models.SelectKecamatan{}
+	}
+
+	return data, nil
+}
+
+// GetLatestMateri implements [IAdminService].
+func (a *AdminServiceImpl) GetLatestMateri(ctx context.Context) ([]*models.Materi, error) {
+	data, err := a.adminRepo.GetLatestMateri(ctx)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil materi", 500)
+	}
+	if len(data) == 0 {
+		data = []*models.Materi{}
+	}
+	return data, nil
+}
+
+// GetLatestVideo implements [IAdminService].
+func (a *AdminServiceImpl) GetLatestVideo(ctx context.Context) ([]*models.Video, error) {
+	data, err := a.adminRepo.GetLatestVideo(ctx)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil video", 500)
+	}
+	if len(data) == 0 {
+		data = []*models.Video{}
+	}
+	return data, nil
+}

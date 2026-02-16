@@ -31,3 +31,14 @@ type GetAllLupaKataSandiRequest struct {
 	Page  int `query:"page" validate:"omitempty,min=1"`
 	Limit int `query:"limit" validate:"omitempty,min=1,max=100"`
 }
+
+type GetAllLaporanRequest struct {
+	Page   int    `query:"page" validate:"omitempty,min=1"`
+	Limit  int    `query:"limit" validate:"omitempty,min=1,max=100"`
+	Search string `query:"search" validate:"omitempty"`
+}
+
+type UpdateStatusLaporan struct {
+	Status       string  `json:"status" validate:"required"`
+	CatatanAdmin *string `json:"catatan_admin,omitempty"`
+}

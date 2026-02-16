@@ -13,15 +13,18 @@ type MateriResponse struct {
 	Deskripsi       string    `json:"deskripsi"`
 	Status          string    `json:"status"`
 	CatatanTambahan *string   `json:"catatan_tambahan"`
-	GambarURLs      []string  `json:"gambar_urls"`
+	GambarURLs      []any     `json:"gambar_urls"`
 	CreatedAt       string    `json:"created_at"`
 	UpdatedAt       string    `json:"updated_at"`
 }
 
 func ToMateriResponse(materi models.Materi) MateriResponse {
-	gambars := []string{}
-	for _, gambar := range materi.Gambar {
-		gambars = append(gambars, gambar.Path)
+	gambars := []any{}
+	for _, gambar := range materi.MateriGambars {
+		gambars = append(gambars, map[string]interface{}{
+			"id":  gambar.ID,          // ID pivot materi_gambar
+			"url": gambar.Gambar.Path, // URL gambar
+		})
 	}
 	return MateriResponse{
 		ID:              materi.ID,

@@ -387,3 +387,72 @@ func (p *PetugasServiceImpl) AturUlangKataSandi(ctx context.Context, petugasId u
 		return nil
 	})
 }
+
+// UpdateStatusLaporan implements [IPetugasService].
+func (p *PetugasServiceImpl) UpdateStatusLaporan(ctx context.Context, laporanId uuid.UUID, petugasId uuid.UUID, req petugasrequest.UpdateStatusLaporan) error {
+	updates := map[string]interface{}{
+		"status":     req.Status,
+		"petugas_id": petugasId,
+	}
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return errormessage.NewCustomError(err, "Gagal load timezone", 500)
+	}
+
+	now := time.Now().In(loc)
+
+	switch req.Status {
+	case models.LaporanStatusPengajuan:
+		updates["delivered_at"] = now
+	case models.LaporanStatusSelesai:
+		updates["finished_at"] = now
+	default:
+		return errormessage.NewCustomError(errormessage.ErrBadRequest, "Status tidak valid", 400)
+	}
+	if req.Keterangan != nil {
+		updates["hasil_tindak_lanjut"] = *req.Keterangan
+	}
+	if err := p.petugasRepo.UpdateStatusLaporan(ctx, laporanId, updates); err != nil {
+		return errormessage.NewCustomError(err, "Gagal mengubah status laporan", 500)
+	}
+	return nil
+}
+
+// GetAllLaporan implements [IPetugasService].
+func (p *PetugasServiceImpl) GetAllLaporan(ctx context.Context, req petugasrequest.GetAllLaporanRequest, petugasId uuid.UUID) ([]*models.Laporan, int, error) {
+	data, count, err := p.petugasRepo.GetAllLaporan(ctx, req.Limit, req.Page, req.Search, petugasId)
+	if err != nil {
+		return nil, 0, errormessage.NewCustomError(err, "Gagal mengambil laporan", 500)
+	}
+	if len(data) == 0 {
+		data = []*models.Laporan{}
+	}
+	return data, count, nil
+}
+
+// GetLaporanByID implements [IPetugasService].
+func (p *PetugasServiceImpl) GetLaporanByID(ctx context.Context, laporanId uuid.UUID) (*models.Laporan, error) {
+	data, err := p.petugasRepo.GetLaporanByID(ctx, laporanId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errormessage.NewCustomError(err, "Laporan tidak ditemukan", 404)
+		}
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil laporan", 500)
+	}
+	return data, nil
+}
+
+// GetDashboard implements [IPetugasService].
+func (p *PetugasServiceImpl) GetDashboard(ctx context.Context, petugasId uuid.UUID) (*models.TotalDataDashboardPetugas, error) {
+	return p.petugasRepo.GetDashboardPetugas(ctx, petugasId)
+}
+
+// GetLatestLaporanByPuskesmasID implements [IPetugasService].
+func (p *PetugasServiceImpl) GetLatestLaporanByPuskesmasID(ctx context.Context, petugasId uuid.UUID) ([]*models.Laporan, error) {
+	return p.petugasRepo.GetLatestLaporanByPuskesmasID(ctx, petugasId)
+}
+
+// GetLatestSurveyByPetugasID implements [IPetugasService].
+func (p *PetugasServiceImpl) GetLatestSurveyByPetugasID(ctx context.Context, petugasId uuid.UUID) ([]*models.Survey, error) {
+	return p.petugasRepo.GetLatestSurveyByPetugasID(ctx, petugasId)
+}

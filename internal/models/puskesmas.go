@@ -27,7 +27,11 @@ func (Puskesmas) TableName() string {
 
 type PuskesmasWithTotal struct {
 	Puskesmas
-	TotalPetugas int `json:"total_petugas"`
+	TotalPetugas  int     `json:"total_petugas"`
+	NamaKecamatan string  `json:"nama_kecamatan"`
+	NamaKelurahan string  `json:"nama_kelurahan"`
+	DF            float64 `json:"df"`
+	Status        string  `json:"status"`
 }
 
 type SelectPuskesmas struct {

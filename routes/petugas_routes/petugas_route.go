@@ -34,4 +34,11 @@ func PetugasRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	e.GET("/status-lupa-kata-sandi/:logId", petugasCtrl.StatusVerifikasiLupaKataSandi)
 	e.PUT("/atur-ulang-kata-sandi/:petugasId", petugasCtrl.AturUlangKataSandi)
 
+	pm.GET("/laporan/all", petugasCtrl.GetAllLaporan)
+	pm.GET("/laporan/:laporanId", petugasCtrl.GetLaporanByID)
+	pm.PUT("/laporan/:laporanId/update-status", petugasCtrl.UpdateStatusLaporan)
+
+	pm.GET("/dashboard", petugasCtrl.GetDashboard)
+	pm.GET("/laporan-latest", petugasCtrl.GetLatestLaporanByPuskesmasID)
+	pm.GET("/survey-latest", petugasCtrl.GetLatestSurveyByPetugasID)
 }

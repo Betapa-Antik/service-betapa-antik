@@ -6,6 +6,7 @@ import (
 	kecamatanroutes "betapa-antik-service/routes/kecamatan_routes"
 	keluargaroutes "betapa-antik-service/routes/keluarga_routes"
 	kelurahanroute "betapa-antik-service/routes/kelurahan_route"
+	masyarakatroutes "betapa-antik-service/routes/masyarakat_routes"
 	materiroutes "betapa-antik-service/routes/materi_routes"
 	petugasroutes "betapa-antik-service/routes/petugas_routes"
 	puskesmasroutes "betapa-antik-service/routes/puskesmas_routes"
@@ -40,4 +41,6 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasource.Clo
 	keluargaroutes.KeluargaRoutes(v1.Group("/keluarga"), db, rdb)
 	//register survey routes
 	surveyroutes.SurveyRoutes(v1.Group("/survey"), db, rdb)
+	//register masyarakat routes
+	masyarakatroutes.MasyarakatRoutes(v1.Group("/masyarakat"), db)
 }

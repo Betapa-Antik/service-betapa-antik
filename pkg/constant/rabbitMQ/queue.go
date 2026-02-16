@@ -8,4 +8,5 @@ const (
 	PuskesmasUploadQueue   = "puskesmas.photo.upload"
 	PetugasUploadQueue     = "petugas.photo.upload"
 	SurveyUploadQueue      = "survey.photo.upload"
+	LaporanUploadQueue     = "laporan.photo.upload"
 )

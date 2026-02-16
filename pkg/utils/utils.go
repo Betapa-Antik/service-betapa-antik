@@ -12,5 +12,5 @@ func FormatDateString(dateStr string) string {
 	if err != nil {
 		return dateStr
 	}
-	return t.Format("01-01-2026")
+	return t.Format("02-01-2006")
 }

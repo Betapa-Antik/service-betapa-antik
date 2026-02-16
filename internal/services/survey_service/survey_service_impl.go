@@ -187,7 +187,7 @@ func (s *SurveyServiceImpl) CreateSurvey(ctx context.Context, petugasId uuid.UUI
 
 		producers.PublishSurveyPhotoUploadAsync(pl)
 	}
-
+	s.InvalidateSurveyCache(ctx, petugasId, survey.ID)
 	return nil
 }
 
@@ -315,6 +315,13 @@ func (s *SurveyServiceImpl) UpdateSurvey(ctx context.Context, surveyId uuid.UUID
 		if len(updates) > 0 {
 			if err := repoTx.UpdateSurvey(ctx, survey.ID, updates); err != nil {
 				return errormessage.NewCustomError(err, "Gagal mengupdate survey", 500)
+			}
+		}
+
+		if len(req.HapusItemIDs) > 0 {
+			if err := tx.Where("id IN ? AND survey_id = ?", req.HapusItemIDs, surveyId).
+				Delete(&models.SurveyItem{}).Error; err != nil {
+				return errormessage.NewCustomError(err, "Gagal menghapus item survey", 500)
 			}
 		}
 

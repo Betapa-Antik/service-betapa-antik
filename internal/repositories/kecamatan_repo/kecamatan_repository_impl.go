@@ -2,6 +2,7 @@ package kecamatanrepo
 
 import (
 	"betapa-antik-service/internal/models"
+	"betapa-antik-service/pkg/utils"
 	"context"
 
 	"github.com/google/uuid"
@@ -78,11 +79,65 @@ func (k *KecamatanRepositoryImpl) GetAllKecamatan(
 	// ============================
 	dataQuery := k.db.WithContext(ctx).
 		Table("kecamatan").
+		Joins("LEFT JOIN keluarga ON keluarga.kecamatan_id = kecamatan.id").
+		Joins("LEFT JOIN survey ON survey.keluarga_id = keluarga.id AND survey.jenis_survey = ?", models.JenisSurveyJentik).
+		Joins("LEFT JOIN survey_item ON survey_item.survey_id = survey.id").
 		Select(`
 			kecamatan.*,
-			(SELECT COUNT(1) FROM kelurahan WHERE kelurahan.kecamatan_id = kecamatan.id) as total_kelurahan,
-    		(SELECT COUNT(1) FROM puskesmas WHERE puskesmas.kecamatan_id = kecamatan.id) as total_puskesmas
+
+			-- Total Kelurahan
+			(SELECT COUNT(1)
+			 FROM kelurahan
+			 WHERE kelurahan.kecamatan_id = kecamatan.id
+			) as total_kelurahan,
+
+			-- Total Puskesmas
+			(SELECT COUNT(1)
+			 FROM puskesmas
+			 WHERE puskesmas.kecamatan_id = kecamatan.id
+			) as total_puskesmas,
+
+			-- =====================
+			-- HITUNG HI
+			-- =====================
+			COALESCE(
+				COUNT(DISTINCT CASE 
+					WHEN survey_item.jumlah_positif > 0 
+					THEN survey.id
+				END)::float
+				/ NULLIF(COUNT(DISTINCT survey.id),0) * 100,
+			0) as hi,
+
+			-- =====================
+			-- HITUNG CI
+			-- =====================
+			COALESCE(
+				SUM(survey_item.jumlah_positif)::float
+				/ NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100,
+			0) as ci,
+
+			-- =====================
+			-- HITUNG BI
+			-- =====================
+			COALESCE(
+				SUM(survey_item.jumlah_positif)::float
+				/ NULLIF(COUNT(DISTINCT survey.id),0) * 100,
+			0) as bi,
+
+			-- =====================
+			-- HITUNG ABJ
+			-- =====================
+			COALESCE(
+				100 - (
+					COUNT(DISTINCT CASE 
+						WHEN survey_item.jumlah_positif > 0 
+						THEN survey.id
+					END)::float
+					/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+				),
+			0) as abj
 		`).
+		Group("kecamatan.id").
 		Order("kecamatan.created_at DESC").
 		Limit(limit).
 		Offset(offset)
@@ -96,8 +151,20 @@ func (k *KecamatanRepositoryImpl) GetAllKecamatan(
 		)
 	}
 
-	if err := dataQuery.Find(&kecamatanList).Error; err != nil {
+	if err := dataQuery.Scan(&kecamatanList).Error; err != nil {
 		return nil, 0, err
+	}
+
+	for i := range kecamatanList {
+
+		dfHI := utils.GetDFByHI(kecamatanList[i].HI)
+		dfCI := utils.GetDFByCI(kecamatanList[i].CI)
+		dfBI := utils.GetDFByBI(kecamatanList[i].BI)
+
+		dfFinal := utils.MaxDF(dfHI, dfCI, dfBI)
+
+		kecamatanList[i].DF = dfFinal
+		kecamatanList[i].Status = utils.GetStatusByDF(dfFinal)
 	}
 
 	return kecamatanList, int(totalData), nil

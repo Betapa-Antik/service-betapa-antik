@@ -39,3 +39,14 @@ type AturUlangKataSandiRequest struct {
 	KataSandiBaru           string `json:"kata_sandi_baru" validate:"required,password"`
 	KonfirmasiKataSandiBaru string `json:"konfirmasi_kata_sandi_baru" validate:"required,eqfield=KataSandiBaru"`
 }
+
+type UpdateStatusLaporan struct {
+	Status     string  `json:"status" validate:"required"`
+	Keterangan *string `json:"keterangan,omitempty"`
+}
+
+type GetAllLaporanRequest struct {
+	Page   int    `query:"page" validate:"omitempty,min=1"`
+	Limit  int    `query:"limit" validate:"omitempty,min=1,max=100"`
+	Search string `query:"search" validate:"omitempty"`
+}

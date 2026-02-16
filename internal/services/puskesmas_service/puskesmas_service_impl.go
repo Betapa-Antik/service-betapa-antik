@@ -302,3 +302,8 @@ func (p *PuskesmasServiceImpl) GetSelectKelurahan(ctx context.Context, kecamatan
 
 	return data, nil
 }
+
+// GetPetugasByPuskesmasId implements [IPuskesmasService].
+func (p *PuskesmasServiceImpl) GetPetugasByPuskesmasId(ctx context.Context, puskesmasId uuid.UUID, search string) ([]*models.PetugasWithTotalSurvey, error) {
+	return p.puskesmasRepo.GetAllPetugasByPuskesmasId(ctx, puskesmasId, search)
+}

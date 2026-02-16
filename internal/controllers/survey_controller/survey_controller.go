@@ -296,6 +296,20 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 			}
 		}
 	}
+	// Di dalam UpdateSurvey controller
+	var hapusItemIDs []uuid.UUID
+	hapusItemStr := ctx.FormValue("hapus_item_ids")
+
+	if hapusItemStr != "" {
+		if err := json.Unmarshal([]byte(hapusItemStr), &hapusItemIDs); err != nil {
+			return response.Error(
+				ctx,
+				http.StatusBadRequest,
+				"Format hapus_item_ids tidak valid",
+				err.Error(),
+			)
+		}
+	}
 
 	// 5. Susun Request DTO
 	req := surveyrequest.UpdateSurveyRequest{
@@ -307,6 +321,7 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 		FollowUpJentik: followJentik,
 		GambarBaru:     gambarBaru,
 		HapusGambarIDs: hapusIDs,
+		HapusItemIDs:   hapusItemIDs,
 	}
 
 	// 6. Panggil Service

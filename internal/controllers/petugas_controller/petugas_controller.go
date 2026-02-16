@@ -4,14 +4,17 @@ import (
 	authrequest "betapa-antik-service/internal/dto/request/auth_request"
 	petugasrequest "betapa-antik-service/internal/dto/request/petugas_request"
 	authresponse "betapa-antik-service/internal/dto/response/auth_response"
+	laporanresponse "betapa-antik-service/internal/dto/response/laporan_response"
 	logresponse "betapa-antik-service/internal/dto/response/log_response"
 	petugasresponse "betapa-antik-service/internal/dto/response/petugas_response"
 	puskesmasresponse "betapa-antik-service/internal/dto/response/puskesmas_response"
+	surveyresponse "betapa-antik-service/internal/dto/response/survey_response"
 	"betapa-antik-service/internal/models"
 	petugasservice "betapa-antik-service/internal/services/petugas_service"
 	errormessage "betapa-antik-service/pkg/constant/error_message"
 	"betapa-antik-service/pkg/constant/response"
 	"betapa-antik-service/pkg/utils"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -300,4 +303,160 @@ func (p *PetugasController) AturUlangKataSandi(ctx echo.Context) error {
 	}
 
 	return response.Success(ctx, http.StatusOK, "Ubah Kata Sandi berhasil", nil)
+}
+
+func (p *PetugasController) UpdateStatusLaporan(ctx echo.Context) error {
+	laporanId, err := uuid.Parse(ctx.Param("laporanId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID tidak valid", err.Error())
+	}
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+	var req petugasrequest.UpdateStatusLaporan
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", 500)
+	}
+	if err := ctx.Validate(&req); err != nil {
+		validationErrors := utils.ParseValidationError(err)
+		return response.Error(ctx, http.StatusBadRequest, "Validasi gagal", validationErrors)
+	}
+	err = p.petugasService.UpdateStatusLaporan(ctx.Request().Context(), laporanId, user.ID, req)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	return response.Success(ctx, http.StatusOK, "Status laporan berhasil diperbarui", nil)
+}
+
+func (p *PetugasController) GetAllLaporan(ctx echo.Context) error {
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+	req := new(petugasrequest.GetAllLaporanRequest)
+	if err := ctx.Bind(req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "Permintaan tidak valid", err.Error())
+	}
+
+	data, total, err := p.petugasService.GetAllLaporan(ctx.Request().Context(), *req, user.ID)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+	pagination := response.PaginationMeta{
+		CurrentPage: page,
+		PerPage:     limit,
+		TotalData:   int(total),
+		TotalPages:  totalPages,
+	}
+	items := make([]laporanresponse.LaporanResponse, len(data))
+	for i, v := range data {
+		items[i] = laporanresponse.ToLaporanResponse(*v)
+	}
+	return response.PaginatedSuccess(ctx, http.StatusOK, "Laporan berhasil diambil", items, pagination)
+}
+
+func (p *PetugasController) GetLaporanByID(ctx echo.Context) error {
+	laporanId, err := uuid.Parse(ctx.Param("laporanId"))
+	if err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "ID tidak valid", err.Error())
+	}
+	data, err := p.petugasService.GetLaporanByID(ctx.Request().Context(), laporanId)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	return response.Success(ctx, http.StatusOK, "Laporan berhasil diambil", laporanresponse.ToLaporanResponse(*data))
+}
+
+func (p *PetugasController) GetDashboard(ctx echo.Context) error {
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+	data, err := p.petugasService.GetDashboard(ctx.Request().Context(), user.ID)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	return response.Success(ctx, http.StatusOK, "Dashboard berhasil diambil", data)
+}
+
+func (p *PetugasController) GetLatestLaporanByPuskesmasID(ctx echo.Context) error {
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+	data, err := p.petugasService.GetLatestLaporanByPuskesmasID(ctx.Request().Context(), user.ID)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+	items := make([]laporanresponse.LaporanResponse, len(data))
+	for i, v := range data {
+		items[i] = laporanresponse.ToLaporanResponse(*v)
+	}
+	return response.Success(ctx, http.StatusOK, "Laporan terbaru berhasil diambil", items)
+}
+
+func (p *PetugasController) GetLatestSurveyByPetugasID(ctx echo.Context) error {
+	u := ctx.Get("user")
+	if u == nil {
+		return response.Error(ctx, http.StatusUnauthorized, "Unauthorized", "User not found in context")
+	}
+	user, ok := u.(*models.User)
+	if !ok {
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", "Invalid user in context")
+	}
+	data, err := p.petugasService.GetLatestSurveyByPetugasID(ctx.Request().Context(), user.ID)
+	if err != nil {
+		if ce, ok := errormessage.AsCustomErr(err); ok {
+			return response.Error(ctx, ce.Status, ce.Msg, ce.Err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "Terjadi kesalahan", err.Error())
+	}
+
+	items := make([]surveyresponse.LatestSurvey, len(data))
+	for i, v := range data {
+		items[i] = surveyresponse.ToLatestSurvey(*v)
+	}
+
+	return response.Success(ctx, http.StatusOK, "Survey terbaru berhasil diambil", items)
 }

@@ -59,7 +59,8 @@ func (m *MateriRepositoryImpl) GetAllMateri(ctx context.Context, limit, offset i
 
 	query := m.db.WithContext(ctx).
 		Model(&models.Materi{}).
-		Preload("Gambar")
+		Preload("MateriGambars").
+		Preload("MateriGambars.Gambar")
 
 	if search != "" {
 		query = query.Where("judul ILIKE ?", "%"+search+"%")
@@ -86,7 +87,7 @@ func (m *MateriRepositoryImpl) GetAllMateri(ctx context.Context, limit, offset i
 // GetByID implements [IMateriRepository].
 func (m *MateriRepositoryImpl) GetByID(ctx context.Context, id uuid.UUID) (*models.Materi, error) {
 	var materi models.Materi
-	err := m.db.WithContext(ctx).Preload("Gambar").Preload("MateriGambars").Where("id = ?", id).First(&materi).Error
+	err := m.db.WithContext(ctx).Preload("MateriGambars.Gambar").Where("id = ?", id).First(&materi).Error
 	if err != nil {
 		return nil, err
 	}
