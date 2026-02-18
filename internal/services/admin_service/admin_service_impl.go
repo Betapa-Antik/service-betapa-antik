@@ -442,7 +442,14 @@ func (a *AdminServiceImpl) GetDashboardAdmin(ctx context.Context) (*models.Total
 
 // GetStatistikDFChart implements [IAdminService].
 func (a *AdminServiceImpl) GetStatistikDFChart(ctx context.Context, kecamatanId uuid.UUID, startDate string, endDate string) ([]models.StatistikDFChart, error) {
-	return a.adminRepo.GetStatistikDFChart(ctx, kecamatanId, startDate, endDate)
+	data, err := a.adminRepo.GetStatistikDFChart(ctx, kecamatanId, startDate, endDate)
+	if err != nil {
+		return nil, errormessage.NewCustomError(err, "Gagal mengambil statistik", 500)
+	}
+	if len(data) == 0 {
+		data = []models.StatistikDFChart{}
+	}
+	return data, nil
 }
 
 // GetSelectKecamatan implements [IAdminService].
