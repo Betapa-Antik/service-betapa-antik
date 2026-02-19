@@ -106,6 +106,7 @@ func (m *MateriServiceImpl) CreateMateri(ctx context.Context, req *materirequest
 		// ⬅️ ASYNC, API TIDAK NUNGGU
 		producers.PublishMateriPhotoUploadAsync(pl)
 	}
+	m.InvalidateMateriCache(ctx, materi.ID)
 
 	return nil
 }
