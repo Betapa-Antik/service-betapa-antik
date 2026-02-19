@@ -270,7 +270,7 @@ func (m *MateriServiceImpl) UpdateMateri(ctx context.Context, id uuid.UUID, req 
 
 			producers.PublishMateriPhotoUploadAsync(pl)
 		}
-
+		m.InvalidateMateriCache(ctx, materi.ID)
 		return nil
 	})
 }
