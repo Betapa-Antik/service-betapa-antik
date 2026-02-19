@@ -19,7 +19,7 @@ type Materi struct {
 	Status          string         `gorm:"type:varchar(50);not null" json:"status"`
 	CatatanTambahan *string        `gorm:"type:text;default:null" json:"catatan_tambahan,omitempty"`
 	Gambar          []Gambar       `gorm:"many2many:materi_gambar;constraint:OnDelete:CASCADE;" json:"gambar,omitempty"`
-	MateriGambars   []MateriGambar `gorm:"foreignKey:MateriID;constraint:OnDelete:CASCADE;" json:"-"`
+	MateriGambars   []MateriGambar `gorm:"foreignKey:MateriID;constraint:OnDelete:CASCADE;" json:"gambar_urls"`
 	CreatedAt       time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
