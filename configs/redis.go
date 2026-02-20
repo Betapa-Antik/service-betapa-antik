@@ -58,3 +58,14 @@ func GetRedis(ctx context.Context, key string) (string, error) {
 func DeleteRedis(ctx context.Context, key string) error {
 	return RDB.Del(ctx, key).Err()
 }
+func DeleteByPattern(ctx context.Context, pattern string) error {
+	iter := RDB.Scan(ctx, 0, pattern, 0).Iterator()
+
+	for iter.Next(ctx) {
+		if err := RDB.Del(ctx, iter.Val()).Err(); err != nil {
+			return err
+		}
+	}
+
+	return iter.Err()
+}

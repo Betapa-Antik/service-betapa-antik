@@ -12,9 +12,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 )
+
+var Rdb *redis.Client
 
 func KecamatanPhotoConsumer(ctx context.Context, db *gorm.DB, cld datasource.CloudinaryService) error {
 	kecamatanRepo := kecamatanrepo.NewKecamatanRepositoryImpl(db)
@@ -101,7 +104,10 @@ func handleUpload(ctx context.Context, d amqp.Delivery, repo kecamatanrepo.IKeca
 			return
 		}
 		_ = configs.DeleteRedis(ctx, "kecamatan:"+p.ID.String())
-		_ = configs.DeleteRedis(ctx, "kecamatans:all:*")
+		// Delete all paginated list cache
+		if err := configs.DeleteByPattern(ctx, "kecamatans:all:*"); err != nil {
+			log.Println("Redis delete pattern error:", err)
+		}
 	}
 
 	_ = d.Ack(false)
