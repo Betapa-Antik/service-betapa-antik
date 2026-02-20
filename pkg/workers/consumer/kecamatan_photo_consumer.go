@@ -105,7 +105,7 @@ func handleUpload(ctx context.Context, d amqp.Delivery, repo kecamatanrepo.IKeca
 		}
 		_ = configs.DeleteRedis(ctx, "kecamatan:"+p.ID.String())
 		// Delete all paginated list cache
-		if err := configs.DeleteByPattern(ctx, "kecamatans:all:*"); err != nil {
+		if err := configs.DeleteByPattern(ctx, "kecamatan:all:*"); err != nil {
 			log.Println("Redis delete pattern error:", err)
 		}
 	}

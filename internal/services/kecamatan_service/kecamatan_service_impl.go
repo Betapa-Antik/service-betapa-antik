@@ -38,7 +38,7 @@ func (k *KecamatanServiceImpl) InvalidateKecamatanCache(ctx context.Context, id 
 	_ = configs.DeleteRedis(ctx, "kecamatan:"+id.String())
 
 	// Hapus semua cache list kecamatan (pattern matching)
-	iter := k.rdb.Scan(ctx, 0, "kecamatans:all:*", 0).Iterator()
+	iter := k.rdb.Scan(ctx, 0, "kecamatan:all:*", 0).Iterator()
 	for iter.Next(ctx) {
 		configs.DeleteRedis(ctx, iter.Val())
 	}
