@@ -91,6 +91,7 @@ func (k *KecamatanServiceImpl) CreateKecamatan(ctx context.Context, req kecamata
 			producers.PublishKecamatanPhotoUpload(pl)
 		}
 	}
+	k.InvalidateKecamatanCache(ctx, kecamatan.ID)
 	return nil
 }
 
