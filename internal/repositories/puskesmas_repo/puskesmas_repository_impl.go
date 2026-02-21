@@ -57,16 +57,13 @@ func (p *PuskesmasRepositoryImpl) GetAllPuskesmas(
 	}
 
 	// ============================
-	// BASE QUERY
+	// BASE QUERY (FOR COUNT)
 	// ============================
 	baseQuery := p.db.WithContext(ctx).
-		Model(&models.Puskesmas{}).
-		Preload("Kecamatan").
-		Preload("Kelurahan")
+		Model(&models.Puskesmas{})
 
 	if search != "" {
-		searchPattern := "%" + search + "%"
-		baseQuery = baseQuery.Where("puskesmas.nama_puskesmas ILIKE ?", searchPattern)
+		baseQuery = baseQuery.Where("puskesmas.nama_puskesmas ILIKE ?", "%"+search+"%")
 	}
 
 	if kecamatanId != uuid.Nil {
@@ -74,108 +71,121 @@ func (p *PuskesmasRepositoryImpl) GetAllPuskesmas(
 	}
 
 	// ============================
-	// COUNT
+	// COUNT TOTAL DATA
 	// ============================
 	if err := baseQuery.Count(&totalData).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// ============================
-	// DATA QUERY + DF Kecamatan
+	// DATA QUERY + DF
 	// ============================
 	dataQuery := baseQuery.
 		Joins("LEFT JOIN kecamatan ON kecamatan.id = puskesmas.kecamatan_id").
 		Joins("LEFT JOIN kelurahan ON kelurahan.id = puskesmas.kelurahan_id").
 		Joins("LEFT JOIN keluarga ON keluarga.kecamatan_id = puskesmas.kecamatan_id").
 		Joins(`
-        LEFT JOIN survey 
-        ON survey.keluarga_id = keluarga.id
-        AND survey.jenis_survey = ?
-    `, models.JenisSurveyJentik).
+			LEFT JOIN survey 
+			ON survey.keluarga_id = keluarga.id
+			AND survey.jenis_survey = ?
+		`, models.JenisSurveyJentik).
 		Joins("LEFT JOIN survey_item ON survey_item.survey_id = survey.id").
 		Select(`
-        puskesmas.*,
+			puskesmas.*,
+			kecamatan.nama_kecamatan,
+			kelurahan.nama_kelurahan,
 
-        kecamatan.nama_kecamatan,
-        kelurahan.nama_kelurahan,
+			-- TOTAL PETUGAS AKTIF
+			(
+				SELECT COUNT(1)
+				FROM "user" u
+				WHERE u.puskesmas_id = puskesmas.id
+				AND u.status = 'active'
+			) AS total_petugas,
 
-        -- Total Petugas Active
-        (SELECT COUNT(1)
-         FROM "user"
-         WHERE "user".puskesmas_id = puskesmas.id
-           AND "user".status = 'active'
-        ) as total_petugas,
+			-- DF CALCULATION (FIXED)
+			CASE
+				WHEN COUNT(DISTINCT survey.id) = 0 THEN 1
+				ELSE
+					COALESCE(
+						GREATEST(
 
-        -- DF Kecamatan (Max DF)
-        COALESCE(
-            GREATEST(
-                CASE
-                    WHEN (
-                        COUNT(DISTINCT CASE 
-                            WHEN survey_item.jumlah_positif > 0 
-                            THEN survey.id
-                        END)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 3 THEN 1
-                    WHEN (
-                        COUNT(DISTINCT CASE 
-                            WHEN survey_item.jumlah_positif > 0 
-                            THEN survey.id
-                        END)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 7 THEN 2
-                    WHEN (
-                        COUNT(DISTINCT CASE 
-                            WHEN survey_item.jumlah_positif > 0 
-                            THEN survey.id
-                        END)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 17 THEN 3
-                    WHEN (
-                        COUNT(DISTINCT CASE 
-                            WHEN survey_item.jumlah_positif > 0 
-                            THEN survey.id
-                        END)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 28 THEN 4
-                    ELSE 9
-                END,
+							-- HOUSE INDEX
+							CASE
+								WHEN (
+									COUNT(DISTINCT CASE 
+										WHEN survey_item.jumlah_positif > 0 
+										THEN survey.id
+									END)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 3 THEN 1
+								WHEN (
+									COUNT(DISTINCT CASE 
+										WHEN survey_item.jumlah_positif > 0 
+										THEN survey.id
+									END)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 7 THEN 2
+								WHEN (
+									COUNT(DISTINCT CASE 
+										WHEN survey_item.jumlah_positif > 0 
+										THEN survey.id
+									END)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 17 THEN 3
+								WHEN (
+									COUNT(DISTINCT CASE 
+										WHEN survey_item.jumlah_positif > 0 
+										THEN survey.id
+									END)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 28 THEN 4
+								ELSE 9
+							END,
 
-                CASE
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
-                    ) <= 2 THEN 1
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
-                    ) <= 5 THEN 2
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
-                    ) <= 9 THEN 3
-                    ELSE 9
-                END,
+							-- CONTAINER INDEX
+							CASE
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
+								) <= 2 THEN 1
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
+								) <= 5 THEN 2
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(SUM(survey_item.jumlah_tempat_air),0) * 100
+								) <= 9 THEN 3
+								ELSE 9
+							END,
 
-                CASE
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 4 THEN 1
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 9 THEN 2
-                    WHEN (
-                        SUM(survey_item.jumlah_positif)::float
-                        / NULLIF(COUNT(DISTINCT survey.id),0) * 100
-                    ) <= 19 THEN 3
-                    ELSE 9
-                END
-            ),
-        1) as df
-    `).
-		Group("puskesmas.id, kecamatan.nama_kecamatan, kelurahan.nama_kelurahan").
+							-- BRETEAU INDEX
+							CASE
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 4 THEN 1
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 9 THEN 2
+								WHEN (
+									SUM(survey_item.jumlah_positif)::float
+									/ NULLIF(COUNT(DISTINCT survey.id),0) * 100
+								) <= 19 THEN 3
+								ELSE 9
+							END
+
+						),
+					1)
+			END AS df
+		`).
+		Group(`
+			puskesmas.id,
+			kecamatan.nama_kecamatan,
+			kelurahan.nama_kelurahan
+		`).
 		Order("puskesmas.created_at DESC").
 		Limit(limit).
 		Offset(offset)
@@ -185,7 +195,7 @@ func (p *PuskesmasRepositoryImpl) GetAllPuskesmas(
 	}
 
 	// ============================
-	// STATUS dari DF
+	// CONVERT DF → STATUS
 	// ============================
 	for i := range puskesmasList {
 		puskesmasList[i].Status = utils.GetStatusByDF(int(puskesmasList[i].DF))
