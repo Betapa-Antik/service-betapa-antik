@@ -201,7 +201,7 @@ func (p *PuskesmasServiceImpl) UpdatePuskesmas(ctx context.Context, puskesmasId 
 			updates["latitude"] = req.Latitude
 		}
 		if req.Longtitude != "" {
-			updates["longitude"] = req.Longtitude
+			updates["longtitude"] = req.Longtitude
 		}
 
 		if err := repoTx.UpdatePuskesmas(ctx, puskesmas.ID, updates); err != nil {
