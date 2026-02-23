@@ -34,11 +34,11 @@ func AdminRoutes(e *echo.Group, db *gorm.DB) {
 	am.PUT("/active-or-nonactive-petugas/:petugasId", ctrl.ActiveOrNonActiveAkunPetugas)
 
 	am.GET("/petugas/lupa-kata-sandi", ctrl.GetActiveLupaKataSandi)
-	am.PUT("/petugas/lupa-kata-sandi/:logId/update-status", ctrl.UpdateStatusLupaKataSandi)
+	e.PUT("/petugas/lupa-kata-sandi/:logId/update-status", ctrl.UpdateStatusLupaKataSandi)
 
 	am.GET("/laporan", ctrl.GetAllLaporan)
 	am.GET("/laporan/:laporanId", ctrl.GetLaporanByID)
-	e.PUT("/laporan/:laporanId/update-status", ctrl.UpdateStatusLaporan)
+	am.PUT("/laporan/:laporanId/update-status", ctrl.UpdateStatusLaporan)
 
 	am.GET("/dashboard", ctrl.GetDashboardAdmin)
 	am.GET("/select-kecamatan", ctrl.GetSelectKecamatan)
