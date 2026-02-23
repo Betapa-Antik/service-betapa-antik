@@ -38,7 +38,7 @@ func AdminRoutes(e *echo.Group, db *gorm.DB) {
 
 	am.GET("/laporan", ctrl.GetAllLaporan)
 	am.GET("/laporan/:laporanId", ctrl.GetLaporanByID)
-	am.PUT("/laporan/:laporanId/update-status", ctrl.UpdateStatusLaporan)
+	e.PUT("/laporan/:laporanId/update-status", ctrl.UpdateStatusLaporan)
 
 	am.GET("/dashboard", ctrl.GetDashboardAdmin)
 	am.GET("/select-kecamatan", ctrl.GetSelectKecamatan)
