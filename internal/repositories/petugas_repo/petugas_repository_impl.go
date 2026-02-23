@@ -118,6 +118,7 @@ func (p *PetugasRepositoryImpl) FindLogForgotPasswordByUserID(ctx context.Contex
 			[]string{
 				string(models.ForgotPasswordStatusPending),
 				string(models.ForgotPasswordStatusPeninjauan),
+				string(models.ForgotPasswordStatusDisetujui),
 			},
 		).
 		First(&log).Error
