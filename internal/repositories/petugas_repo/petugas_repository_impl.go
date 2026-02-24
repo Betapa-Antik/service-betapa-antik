@@ -249,6 +249,10 @@ func (p *PetugasRepositoryImpl) GetDashboardPetugas(ctx context.Context, petugas
 		Order("jumlah DESC").
 		Scan(&kontainerList).Error
 
+	if len(kontainerList) == 0 {
+		kontainerList = []models.Kontainer{}
+	}
+
 	if err != nil {
 		return nil, err
 	}
