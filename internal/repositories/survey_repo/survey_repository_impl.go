@@ -69,6 +69,18 @@ func (s *SurveyRepositoryImpl) CreateSurveyItem(ctx context.Context, data *model
 	return s.db.WithContext(ctx).Create(data).Error
 }
 
+// CreateSurveyNyamukInfo implements [ISurveyRepository].
+func (s *SurveyRepositoryImpl) CreateSurveyNyamukInfo(ctx context.Context, data *models.SurveyNyamukInfo) error {
+	data.ID = uuid.New()
+	return s.db.WithContext(ctx).Create(data).Error
+}
+
+// CreateSurveyPSN implements [ISurveyRepository].
+func (s *SurveyRepositoryImpl) CreateSurveyPSN(ctx context.Context, data *models.SurveyPSN) error {
+	data.ID = uuid.New()
+	return s.db.WithContext(ctx).Create(data).Error
+}
+
 // // FindSurveyLokasi implements [ISurveyRepository].
 // func (s *SurveyRepositoryImpl) FindSurveyLokasi(ctx context.Context, NamaLokasi string, JenisSurvey string) (*models.SurveyLokasi, error) {
 // 	var lokasi models.SurveyLokasi
@@ -194,6 +206,8 @@ func (s *SurveyRepositoryImpl) GetAllSurvey(ctx context.Context, limit int, offs
 		Preload("SurveyGambar.Gambar").
 		Preload("FollowUpNyamuk").
 		Preload("FollowUpJentik").
+		Preload("SurveyNyamukInfo").
+		Preload("SurveyPSN").
 		Order("survey.created_at DESC").
 		Limit(limit).
 		Offset(offset).

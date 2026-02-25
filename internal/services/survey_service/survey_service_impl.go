@@ -150,6 +150,59 @@ func (s *SurveyServiceImpl) CreateSurvey(ctx context.Context, petugasId uuid.UUI
 				return errormessage.NewCustomError(err, "Gagal membuat follow up nyamuk", 500)
 			}
 		}
+		fmt.Printf("PSN: %+v\n", req.PSN)
+		fmt.Printf("FollowUp: %+v\n", req.FollowUpJentik)
+		// ===============================
+		// SECTION B - SURVEY PSN (JENTIK)
+		// ===============================
+		if survey.JenisSurvey == models.JenisSurveyJentik {
+
+			if req.PSN == nil {
+				return errormessage.NewCustomError(
+					errormessage.ErrBadRequest,
+					"Data PSN wajib diisi untuk survey jentik",
+					400,
+				)
+			}
+
+			psn := &models.SurveyPSN{
+				SurveyID:                survey.ID,
+				MengurasBakMandi:        req.PSN.MengurasBakMandi,
+				MenutupTempatAir:        req.PSN.MenutupTempatAir,
+				MendaurUlangBarangBekas: req.PSN.MendaurUlangBarangBekas,
+				MenggunakanLarvasida:    req.PSN.MenggunakanLarvasida,
+				MenggunakanKelambu:      req.PSN.MenggunakanKelambu,
+				MemilikiTanamanPengusir: req.PSN.MemilikiTanamanPengusir,
+			}
+
+			if err := repoTx.CreateSurveyPSN(ctx, psn); err != nil {
+				return errormessage.NewCustomError(err, "Gagal menyimpan data PSN", 500)
+			}
+		}
+
+		// =======================================
+		// SECTION B - INFORMASI UMUM (NYAMUK)
+		// =======================================
+		if survey.JenisSurvey == models.JenisSurveyNyamuk {
+
+			if req.NyamukInfo == nil {
+				return errormessage.NewCustomError(
+					errormessage.ErrBadRequest,
+					"Informasi umum lokasi wajib diisi untuk survey nyamuk",
+					400,
+				)
+			}
+
+			info := &models.SurveyNyamukInfo{
+				SurveyID:          survey.ID,
+				JenisBangunan:     req.NyamukInfo.JenisBangunan,
+				KondisiLingkungan: req.NyamukInfo.KondisiLingkungan,
+			}
+
+			if err := repoTx.CreateSurveyNyamukInfo(ctx, info); err != nil {
+				return errormessage.NewCustomError(err, "Gagal menyimpan informasi lokasi", 500)
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -363,8 +416,12 @@ func (s *SurveyServiceImpl) UpdateSurvey(ctx context.Context, surveyId uuid.UUID
 				}
 			}
 		}
+		finalJenisSurvey := survey.JenisSurvey
+		if req.JenisSurvey != "" {
+			finalJenisSurvey = req.JenisSurvey
+		}
 
-		if req.JenisSurvey == models.JenisSurveyJentik && req.FollowUpJentik != nil {
+		if finalJenisSurvey == models.JenisSurveyJentik && req.FollowUpJentik != nil {
 			followUpdates := map[string]interface{}{}
 			followUpdates["edukasi_psn"] = req.FollowUpJentik.EdukasiPSN
 			if req.FollowUpJentik.TindakLanjut != "" {
@@ -379,7 +436,7 @@ func (s *SurveyServiceImpl) UpdateSurvey(ctx context.Context, surveyId uuid.UUID
 			}
 		}
 
-		if req.JenisSurvey == models.JenisSurveyNyamuk && req.FollowUpNyamuk != nil {
+		if finalJenisSurvey == models.JenisSurveyNyamuk && req.FollowUpNyamuk != nil {
 			followUpdates := map[string]interface{}{}
 			followUpdates["ditemukan_aedes"] = req.FollowUpNyamuk.DitemukanAedes
 			followUpdates["edukasi_or_abate"] = req.FollowUpNyamuk.EdukasiOrAbate
@@ -452,6 +509,34 @@ func (s *SurveyServiceImpl) UpdateSurvey(ctx context.Context, surveyId uuid.UUID
 			producers.PublishSurveyPhotoUploadAsync(payload.PhotoUploadPayload{
 				ID: surveyId, Folder: "betapa_antik/survey", Files: files,
 			})
+		}
+		if finalJenisSurvey == models.JenisSurveyJentik && req.PSN != nil {
+
+			psnUpdates := map[string]interface{}{}
+			psnUpdates["menguras_bak_mandi"] = req.PSN.MengurasBakMandi
+			psnUpdates["menutup_tempat_air"] = req.PSN.MenutupTempatAir
+			psnUpdates["mendaur_ulang_barang_bekas"] = req.PSN.MendaurUlangBarangBekas
+			psnUpdates["menggunakan_larvasida"] = req.PSN.MenggunakanLarvasida
+			psnUpdates["menggunakan_kelambu"] = req.PSN.MenggunakanKelambu
+			psnUpdates["memiliki_tanaman_pengusir"] = req.PSN.MemilikiTanamanPengusir
+
+			if err := tx.Model(&models.SurveyPSN{}).
+				Where("survey_id = ?", surveyId).
+				Updates(psnUpdates).Error; err != nil {
+				return errormessage.NewCustomError(err, "Gagal update PSN", 500)
+			}
+		}
+		if finalJenisSurvey == models.JenisSurveyNyamuk && req.NyamukInfo != nil {
+
+			infoUpdates := map[string]interface{}{}
+			infoUpdates["jenis_bangunan"] = req.NyamukInfo.JenisBangunan
+			infoUpdates["kondisi_lingkungan"] = req.NyamukInfo.KondisiLingkungan
+
+			if err := tx.Model(&models.SurveyNyamukInfo{}).
+				Where("survey_id = ?", surveyId).
+				Updates(infoUpdates).Error; err != nil {
+				return errormessage.NewCustomError(err, "Gagal update informasi nyamuk", 500)
+			}
 		}
 		s.InvalidateSurveyCache(ctx, survey.PetugasID, surveyId)
 		return nil

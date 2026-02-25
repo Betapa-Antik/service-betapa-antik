@@ -19,6 +19,8 @@ type ISurveyRepository interface {
 	CreateSurveyFollowUpNyamuk(ctx context.Context, data *models.SurveyFollowUpNyamuk) error
 	CreateGambar(ctx context.Context, data *models.Gambar) error
 	CreatePivotSurveyGambar(ctx context.Context, data *models.SurveyGambar) error
+	CreateSurveyPSN(ctx context.Context, data *models.SurveyPSN) error
+	CreateSurveyNyamukInfo(ctx context.Context, data *models.SurveyNyamukInfo) error
 
 	GetAllSurvey(ctx context.Context, limit int, offset int, search string, jenisSurvey string, startDate, endDate string, petugasId uuid.UUID) ([]models.Survey, int, error)
 	GetSurveyByID(ctx context.Context, surveyId uuid.UUID) (*models.Survey, error)

@@ -3,6 +3,7 @@ package surveyresponse
 import (
 	"betapa-antik-service/internal/models"
 	"betapa-antik-service/pkg/utils"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -17,6 +18,7 @@ type SurveyResponse struct {
 	CI           float64   `json:"ci"`
 	BI           float64   `json:"bi"`
 	ABJ          float64   `json:"abj"`
+	SectionB     any       `json:"section_b"`
 	DetailSurvey []any     `json:"detail_survey"`
 	FollowUp     any       `json:"follow_up"`
 	Gambar       []any     `json:"gambar_urls"`
@@ -35,8 +37,12 @@ func ToSurveyResponse(survey models.Survey) SurveyResponse {
 
 	if survey.JenisSurvey == models.JenisSurveyJentik {
 		for _, item := range survey.Items {
-			totalWadah += *item.JumlahTempatAir
-			positifWadah += *item.JumlahPositif
+			if item.JumlahTempatAir != nil {
+				totalWadah += *item.JumlahTempatAir
+			}
+			if item.JumlahPositif != nil {
+				positifWadah += *item.JumlahPositif
+			}
 		}
 	}
 
@@ -111,6 +117,15 @@ func ToSurveyResponse(survey models.Survey) SurveyResponse {
 			"catatan":       survey.FollowUpJentik.Catatan,
 		}
 	}
+	if survey.JenisSurvey == models.JenisSurveyNyamuk && survey.FollowUpNyamuk.ID != uuid.Nil {
+		followUp = map[string]interface{}{
+			"ditemukan_aedes":   survey.FollowUpNyamuk.DitemukanAedes,
+			"tingkat_infestasi": survey.FollowUpNyamuk.TingkatInfestasi,
+			"fooging_status":    survey.FollowUpNyamuk.FoogingStatus,
+			"edukasi_or_abate":  survey.FollowUpNyamuk.EdukasiOrAbate,
+			"catatan":           survey.FollowUpNyamuk.Catatan,
+		}
+	}
 
 	// ============================
 	// GAMBAR
@@ -123,6 +138,29 @@ func ToSurveyResponse(survey models.Survey) SurveyResponse {
 			"url": sg.Gambar.Path,
 		})
 	}
+
+	var sectionB any = nil
+
+	if survey.JenisSurvey == models.JenisSurveyNyamuk && survey.SurveyNyamukInfo.ID != uuid.Nil {
+		sectionB = map[string]interface{}{
+			"jenis_bangunan":     survey.SurveyNyamukInfo.JenisBangunan,
+			"kondisi_lingkungan": survey.SurveyNyamukInfo.KondisiLingkungan,
+		}
+	}
+
+	if survey.JenisSurvey == models.JenisSurveyJentik && survey.SurveyPSN.ID != uuid.Nil {
+		sectionB = map[string]interface{}{
+			"menguras_bak_mandi":         survey.SurveyPSN.MengurasBakMandi,
+			"menutup_tempat_air":         survey.SurveyPSN.MenutupTempatAir,
+			"mendaur_ulang_barang_bekas": survey.SurveyPSN.MendaurUlangBarangBekas,
+			"menggunakan_larvasida":      survey.SurveyPSN.MenggunakanLarvasida,
+			"menggunakan_kelambu":        survey.SurveyPSN.MenggunakanKelambu,
+			"memiliki_tanaman_pengusir":  survey.SurveyPSN.MemilikiTanamanPengusir,
+		}
+	}
+
+	fmt.Println("Petugas ID:", survey.Petugas.ID)
+	fmt.Println("Kecamatan ID:", survey.Keluarga.Kecamatan.ID)
 
 	// ============================
 	// FINAL RESPONSE
@@ -140,6 +178,7 @@ func ToSurveyResponse(survey models.Survey) SurveyResponse {
 		BI:  bi,
 		ABJ: abj,
 
+		SectionB:     sectionB,
 		DetailSurvey: detailSurvey,
 		FollowUp:     followUp,
 		Gambar:       gambars,

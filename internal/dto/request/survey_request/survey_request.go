@@ -12,6 +12,13 @@ type CreateSurveyRequest struct {
 	Tanggal     time.Time `form:"tanggal" validate:"required"`
 	JenisSurvey string    `form:"jenis_survey" validate:"required,oneof='Survey Nyamuk' 'Survey Jentik'"`
 
+	// Untuk Survey Nyamuk
+	NyamukInfo *CreateSurveyNyamukInfoRequest `form:"nyamuk_info,omitempty"`
+	// dikirim sebagai JSON string
+
+	// Untuk Survey Jentik
+	PSN *CreateSurveyPSNRequest `form:"survey_psn,omitempty"`
+	// dikirim sebagai JSON string
 	// ============================
 	// Items Lokasi Pengamatan
 	// ============================
@@ -28,6 +35,20 @@ type CreateSurveyRequest struct {
 	// Upload Bukti Survey
 	// ============================
 	Gambar []*multipart.FileHeader `form:"gambar" validate:"omitempty,dive"`
+}
+
+type CreateSurveyNyamukInfoRequest struct {
+	JenisBangunan     string `json:"jenis_bangunan" validate:"required"`
+	KondisiLingkungan string `json:"kondisi_lingkungan" validate:"required"`
+}
+
+type CreateSurveyPSNRequest struct {
+	MengurasBakMandi        bool `json:"menguras_bak_mandi"`
+	MenutupTempatAir        bool `json:"menutup_tempat_air"`
+	MendaurUlangBarangBekas bool `json:"mendaur_ulang_barang_bekas"`
+	MenggunakanLarvasida    bool `json:"menggunakan_larvasida"`
+	MenggunakanKelambu      bool `json:"menggunakan_kelambu"`
+	MemilikiTanamanPengusir bool `json:"memiliki_tanaman_pengusir"`
 }
 
 type CreateSurveyItemRequest struct {
@@ -78,6 +99,8 @@ type UpdateSurveyRequest struct {
 	Tanggal     time.Time `form:"tanggal" validate:"omitempty"`
 	JenisSurvey string    `form:"jenis_survey" validate:"omitempty,oneof='Survey Nyamuk' 'Survey Jentik'"`
 
+	NyamukInfo *CreateSurveyNyamukInfoRequest `form:"nyamuk_info,omitempty"`
+	PSN        *CreateSurveyPSNRequest        `form:"survey_psn,omitempty"`
 	// ============================
 	// Items Lokasi Pengamatan
 	// ============================

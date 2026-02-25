@@ -134,11 +134,49 @@ func (s *SurveyController) CreateSurvey(ctx echo.Context) error {
 		followJentik = &temp
 	}
 
+	var psn *surveyrequest.CreateSurveyPSNRequest
+
+	if jenisSurvey == models.JenisSurveyJentik {
+
+		psnStr := ctx.FormValue("survey_psn")
+		if psnStr == "" {
+			return response.Error(ctx, 400,
+				"Data PSN wajib diisi", "")
+		}
+
+		var temp surveyrequest.CreateSurveyPSNRequest
+		if err := utils.DecodeJSON(psnStr, &temp); err != nil {
+			return response.Error(ctx, 400,
+				"Format survey_psn tidak valid", err.Error())
+		}
+
+		psn = &temp
+	}
+	var nyamukInfo *surveyrequest.CreateSurveyNyamukInfoRequest
+
+	if jenisSurvey == models.JenisSurveyNyamuk {
+
+		psnStr := ctx.FormValue("nyamuk_info")
+		if psnStr == "" {
+			return response.Error(ctx, 400,
+				"Data Nyamuk Info wajib diisi", "")
+		}
+
+		var temp surveyrequest.CreateSurveyNyamukInfoRequest
+		if err := utils.DecodeJSON(psnStr, &temp); err != nil {
+			return response.Error(ctx, 400,
+				"Format Nyamuk Info tidak valid", err.Error())
+		}
+
+		nyamukInfo = &temp
+	}
 	req := surveyrequest.CreateSurveyRequest{
 		KeluargaID:     keluargaID,
 		Tanggal:        tanggal,
 		JenisSurvey:    jenisSurvey,
 		Items:          itemsStr,
+		PSN:            psn,
+		NyamukInfo:     nyamukInfo,
 		FollowUpNyamuk: followNyamuk,
 		FollowUpJentik: followJentik,
 		Gambar:         gambar,
@@ -276,6 +314,8 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 	// 4. Parsing Follow Up (Selective)
 	var followNyamuk *surveyrequest.CreateSurveyFollowUpNyamukRequest
 	var followJentik *surveyrequest.CreateSurveyFollowUpJentikRequest
+	var psn *surveyrequest.CreateSurveyPSNRequest
+	var nyamukInfo *surveyrequest.CreateSurveyNyamukInfoRequest
 
 	if jenisSurvey == models.JenisSurveyNyamuk {
 		followStr := ctx.FormValue("followup_nyamuk")
@@ -286,6 +326,15 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 			}
 		}
 	}
+	if jenisSurvey == models.JenisSurveyNyamuk {
+		nyamukInfoStr := ctx.FormValue("nyamuk_info")
+		if nyamukInfoStr != "" {
+			var temp surveyrequest.CreateSurveyNyamukInfoRequest
+			if err := utils.DecodeJSON(nyamukInfoStr, &temp); err == nil {
+				nyamukInfo = &temp
+			}
+		}
+	}
 
 	if jenisSurvey == models.JenisSurveyJentik {
 		followStr := ctx.FormValue("followup_jentik")
@@ -293,6 +342,15 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 			var temp surveyrequest.CreateSurveyFollowUpJentikRequest
 			if err := utils.DecodeJSON(followStr, &temp); err == nil {
 				followJentik = &temp
+			}
+		}
+	}
+	if jenisSurvey == models.JenisSurveyJentik {
+		psnStr := ctx.FormValue("survey_psn")
+		if psnStr != "" {
+			var temp surveyrequest.CreateSurveyPSNRequest
+			if err := utils.DecodeJSON(psnStr, &temp); err == nil {
+				psn = &temp
 			}
 		}
 	}
@@ -319,6 +377,8 @@ func (s *SurveyController) UpdateSurvey(ctx echo.Context) error {
 		Items:          itemsStr,
 		FollowUpNyamuk: followNyamuk,
 		FollowUpJentik: followJentik,
+		PSN:            psn,
+		NyamukInfo:     nyamukInfo,
 		GambarBaru:     gambarBaru,
 		HapusGambarIDs: hapusIDs,
 		HapusItemIDs:   hapusItemIDs,
