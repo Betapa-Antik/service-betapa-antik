@@ -79,7 +79,7 @@ func (m *MasyarakatRepositoryImpl) GetAllPublicMateri(ctx context.Context, limit
 		Where("status = ?", models.MateriStatusPublished)
 
 	if search != "" {
-		query = query.Where("title LIKE ?", "%"+search+"%")
+		query = query.Where("judul LIKE ?", "%"+search+"%")
 	}
 
 	err := query.Count(&count).Error
@@ -107,7 +107,7 @@ func (m *MasyarakatRepositoryImpl) GetAllPublicVideo(ctx context.Context, limit 
 		Model(&models.Video{}).
 		Where("status = ?", models.VideoStatusPublished)
 	if search != "" {
-		query = query.Where("title LIKE ?", "%"+search+"%")
+		query = query.Where("judul LIKE ?", "%"+search+"%")
 	}
 	err := query.Count(&count).Error
 	if err != nil {
