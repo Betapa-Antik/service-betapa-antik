@@ -4,7 +4,6 @@ import (
 	"betapa-antik-service/internal/models"
 	"betapa-antik-service/pkg/utils"
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -360,6 +359,7 @@ func (m *MasyarakatRepositoryImpl) CalculateDFKecamatan(
 
 // GetLocationResolve implements [IMasyarakatRepository].
 func (m *MasyarakatRepositoryImpl) GetLocationResolve(ctx context.Context, kelurahan string, kecamatan string) (*models.CurrenLocation, error) {
+	// 1. Inisialisasi struct kosong
 	var response models.CurrenLocation
 
 	if kelurahan != "" {
@@ -368,9 +368,8 @@ func (m *MasyarakatRepositoryImpl) GetLocationResolve(ctx context.Context, kelur
 			Where("nama_kelurahan ILIKE ?", "%"+kelurahan+"%").
 			First(&dataKelurahan).Error
 
+		// Jika tidak ada error (data ditemukan)
 		if err == nil {
-
-			// Hitung DF berdasarkan kelurahan
 			df, status, err := m.CalculateDFKelurahan(ctx, dataKelurahan.ID)
 			if err != nil {
 				return nil, err
@@ -383,19 +382,19 @@ func (m *MasyarakatRepositoryImpl) GetLocationResolve(ctx context.Context, kelur
 
 			return &response, nil
 		}
+		// Jika error selain 'Record Not Found', barulah kita kembalikan error-nya
+		if err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
 	}
 
 	if kecamatan != "" {
-
 		var dataKecamatan models.Kecamatan
-
 		err := m.db.WithContext(ctx).
 			Where("nama_kecamatan ILIKE ?", "%"+kecamatan+"%").
 			First(&dataKecamatan).Error
 
 		if err == nil {
-
-			// Hitung DF berdasarkan kecamatan
 			df, status, err := m.CalculateDFKecamatan(ctx, dataKecamatan.ID)
 			if err != nil {
 				return nil, err
@@ -408,11 +407,13 @@ func (m *MasyarakatRepositoryImpl) GetLocationResolve(ctx context.Context, kelur
 
 			return &response, nil
 		}
+
+		if err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
 	}
 
-	return nil, fmt.Errorf(
-		"wilayah tidak ditemukan: kelurahan=%s kecamatan=%s",
-		kelurahan,
-		kecamatan,
-	)
+	// 2. Jika sampai di sini berarti tidak ada yang cocok,
+	// kembalikan struct kosong (atau nil) tanpa pesan error.
+	return &response, nil
 }
