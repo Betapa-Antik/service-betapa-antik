@@ -82,7 +82,44 @@ go test ./...
 
 ---
 
-Jika mau, saya bisa:
+## Deployment Menggunakan Docker
 
-- Menjalankan `go mod tidy` sekarang untuk mengisi `go.sum` dan kemudian mengekstrak daftar dependensi.
-- Membuat contoh `.env` berdasarkan `configs/`.
+Proyek ini telah dikonfigurasi untuk dijalankan dan dideploy menggunakan Docker dan Docker Compose.
+
+### Prasyarat
+- Docker dan Docker Compose telah terinstal di VPS.
+- File konfigurasi `.env` telah disesuaikan dengan konfigurasi produksi VPS Anda.
+
+### Cara Menjalankan
+
+1. **Persiapkan File `.env`**
+   Pastikan Anda membuat file `.env` di direktori root server VPS Anda (isinya mirip seperti `.env` lokal, namun sesuaikan database/redis/rabbitmq/port yang digunakan untuk production).
+
+2. **Jalankan dengan Docker Compose**
+   Gunakan perintah berikut untuk membangun image dan menjalankan kontainer di background (detached mode):
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. **Memeriksa Status Kontainer**
+   Untuk melihat apakah kontainer berjalan dengan baik:
+
+   ```bash
+   docker compose ps
+   ```
+
+4. **Melihat Log Aplikasi**
+   Untuk memantau log dari service:
+
+   ```bash
+   docker compose logs -f
+   ```
+
+5. **Menghentikan Service**
+   Untuk mematikan service:
+
+   ```bash
+   docker compose down
+   ```
+

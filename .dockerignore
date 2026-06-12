@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.air.toml
+tmp/
+upload/
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+*.log
+*.exe
