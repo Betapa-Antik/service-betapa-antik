@@ -21,7 +21,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o betapa-antik-service main.go
 
 # Step 2: Create a minimal production runner image
-FROM alpine:3.19
+FROM alpine:latest
 
 # Set metadata labels
 LABEL maintainer="Antigravity Team"
