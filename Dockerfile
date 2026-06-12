@@ -46,7 +46,7 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Expose the default application port
-EXPOSE 8080
+EXPOSE 8081
 
 # Run the application
 CMD ["./betapa-antik-service"]
